@@ -1,0 +1,51 @@
+# === Node ===
+node_modules/
+npm-debug.*
+yarn-error.*
+*.log
+
+# === Expo ===
+.expo/
+.expo-shared/
+dist/
+web-build/
+expo-env.d.ts
+
+# === Builds nativos ===
+/ios
+/android
+*.apk
+*.aab
+*.ipa
+*.orig.*
+
+# === EAS / secrets ===
+.env
+.env.*
+!.env.example
+google-services.json
+GoogleService-Info.plist
+*.keystore
+*.jks
+
+# === Metro ===
+.metro-health-check*
+
+# === Sistema operativo ===
+.DS_Store
+Thumbs.db
+
+# === Editores ===
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# === TypeScript ===
+*.tsbuildinfo
+
+# === Temporales ===
+*.tmp
+.cache/
+
+# Mantener carpetas vacías de la estructura
+!**/.gitkeep
