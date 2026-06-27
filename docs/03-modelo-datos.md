@@ -14,6 +14,11 @@ llegan con el backup). Autoguardado con debounce; carga por id.
 Navegación (expo-router): `app/index.tsx` = estantería (home), `app/journal/[id].tsx` =
 editor del lienzo. La home recarga la lista con `useFocusEffect` al volver del editor.
 
+Cada elemento guarda `width`/`height` (redimensionado libre con tirador, compensando
+escala y rotación). Las fotos guardan `frame` (catálogo en `features/library/data/frames.ts`).
+El journal guarda `background` (`color` + `pattern`: liso/cuadrícula/líneas). `normalize()`
+en el editor rellena estos campos en journals antiguos.
+
 ## Principio
 
 Todo es **local en el dispositivo**. Cada journal se guarda como una **carpeta** que

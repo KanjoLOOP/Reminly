@@ -10,28 +10,37 @@ import Animated, {
 import { colors } from '../../../core/theme/tokens';
 import type { Transform } from '../../../data/models/journal';
 
+export type Size = { width: number; height: number };
+
 type Props = {
   children: React.ReactNode;
-  /** Transformación inicial (al montar). */
   transform: Transform;
+  size: Size;
+  /** 'both' = ancho y alto (fotos); 'horizontal' = solo ancho (texto). */
+  resizeMode?: 'both' | 'horizontal';
   selected?: boolean;
-  /** Al tocar el elemento (seleccionar + traer al frente). */
   onActivate?: () => void;
-  /** Al soltar un gesto, con la transformación final (para persistir). */
   onTransformEnd?: (t: Transform) => void;
+  onResizeEnd?: (s: Size) => void;
 };
 
+const MIN_W = 48;
+const MIN_H = 48;
+
 /**
- * Hace manipulable a cualquier elemento del lienzo: arrastrar (1 dedo), escalar
- * (pinza) y rotar (2 dedos), simultáneamente y en el hilo de UI. Al terminar un
- * gesto reporta la transformación para que el padre la guarde.
+ * Elemento manipulable del lienzo. Gestos: arrastrar (1 dedo), escalar uniforme
+ * (pinza), rotar (2 dedos) y, con un tirador, redimensionar ancho/alto libremente.
+ * El redimensionado compensa la escala y la rotación para que el tirador siga al dedo.
  */
 export function Manipulable({
   children,
   transform,
+  size,
+  resizeMode = 'both',
   selected = false,
   onActivate,
   onTransformEnd,
+  onResizeEnd,
 }: Props) {
   const tx = useSharedValue(transform.x);
   const ty = useSharedValue(transform.y);
@@ -44,7 +53,12 @@ export function Manipulable({
   const rotation = useSharedValue(transform.rotation);
   const savedRotation = useSharedValue(transform.rotation);
 
-  const commit = () => {
+  const w = useSharedValue(size.width);
+  const h = useSharedValue(size.height);
+  const savedW = useSharedValue(size.width);
+  const savedH = useSharedValue(size.height);
+
+  const commitTransform = () => {
     'worklet';
     if (onTransformEnd) {
       runOnJS(onTransformEnd)({
@@ -59,9 +73,7 @@ export function Manipulable({
   const pan = Gesture.Pan()
     .averageTouches(true)
     .onBegin(() => {
-      if (onActivate) {
-        runOnJS(onActivate)();
-      }
+      if (onActivate) runOnJS(onActivate)();
     })
     .onUpdate((e) => {
       tx.value = savedTx.value + e.translationX;
@@ -70,7 +82,7 @@ export function Manipulable({
     .onEnd(() => {
       savedTx.value = tx.value;
       savedTy.value = ty.value;
-      commit();
+      commitTransform();
     });
 
   const pinch = Gesture.Pinch()
@@ -79,7 +91,7 @@ export function Manipulable({
     })
     .onEnd(() => {
       savedScale.value = scale.value;
-      commit();
+      commitTransform();
     });
 
   const rotate = Gesture.Rotation()
@@ -88,12 +100,34 @@ export function Manipulable({
     })
     .onEnd(() => {
       savedRotation.value = rotation.value;
-      commit();
+      commitTransform();
     });
 
-  const gesture = Gesture.Simultaneous(pan, pinch, rotate);
+  const mainGesture = Gesture.Simultaneous(pan, pinch, rotate);
 
-  const animatedStyle = useAnimatedStyle(() => ({
+  const resizeGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      // delta de pantalla → espacio local: deshacer rotación y escala
+      const r = -rotation.value;
+      const c = Math.cos(r);
+      const s = Math.sin(r);
+      const dx = (e.translationX * c - e.translationY * s) / scale.value;
+      const dy = (e.translationX * s + e.translationY * c) / scale.value;
+      w.value = Math.max(MIN_W, savedW.value + dx);
+      if (resizeMode === 'both') {
+        h.value = Math.max(MIN_H, savedH.value + dy);
+      }
+    })
+    .onEnd(() => {
+      savedW.value = w.value;
+      savedH.value = h.value;
+      if (onResizeEnd) {
+        runOnJS(onResizeEnd)({ width: w.value, height: h.value });
+      }
+    })
+    .blocksExternalGesture(mainGesture);
+
+  const outerStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: tx.value },
       { translateY: ty.value },
@@ -102,24 +136,41 @@ export function Manipulable({
     ],
   }));
 
+  const sizeStyle = useAnimatedStyle(() =>
+    resizeMode === 'both'
+      ? { width: w.value, height: h.value }
+      : { width: w.value }
+  );
+
   return (
-    <GestureDetector gesture={gesture}>
-      <Animated.View style={[styles.item, animatedStyle]}>
-        {children}
-        {selected && (
-          <View pointerEvents="none" style={styles.selection}>
-            <View style={[styles.handle, styles.tl]} />
-            <View style={[styles.handle, styles.tr]} />
-            <View style={[styles.handle, styles.bl]} />
-            <View style={[styles.handle, styles.br]} />
-          </View>
-        )}
+    <GestureDetector gesture={mainGesture}>
+      <Animated.View style={[styles.item, outerStyle]}>
+        <Animated.View style={sizeStyle}>
+          {children}
+
+          {selected && (
+            <>
+              <View pointerEvents="none" style={styles.selection} />
+              <GestureDetector gesture={resizeGesture}>
+                <View
+                  style={[
+                    styles.resizeHandle,
+                    resizeMode === 'both' ? styles.handleCorner : styles.handleRight,
+                  ]}
+                  hitSlop={12}
+                >
+                  <View style={styles.resizeDot} />
+                </View>
+              </GestureDetector>
+            </>
+          )}
+        </Animated.View>
       </Animated.View>
     </GestureDetector>
   );
 }
 
-const HANDLE = 12;
+const HANDLE = 26;
 
 const styles = StyleSheet.create({
   item: {
@@ -137,17 +188,28 @@ const styles = StyleSheet.create({
     borderColor: colors.rose,
     borderRadius: 6,
   },
-  handle: {
+  resizeHandle: {
     position: 'absolute',
     width: HANDLE,
     height: HANDLE,
-    borderRadius: HANDLE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  handleCorner: {
+    right: -HANDLE / 2 - 6,
+    bottom: -HANDLE / 2 - 6,
+  },
+  handleRight: {
+    right: -HANDLE / 2 - 6,
+    top: '50%',
+    marginTop: -HANDLE / 2,
+  },
+  resizeDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: colors.white,
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: colors.rose,
   },
-  tl: { top: -HANDLE / 2, left: -HANDLE / 2 },
-  tr: { top: -HANDLE / 2, right: -HANDLE / 2 },
-  bl: { bottom: -HANDLE / 2, left: -HANDLE / 2 },
-  br: { bottom: -HANDLE / 2, right: -HANDLE / 2 },
 });

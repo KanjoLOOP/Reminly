@@ -11,6 +11,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 import {
   CanvasItem,
+  DEFAULT_BACKGROUND,
   Journal,
   JournalSummary,
   SCHEMA_VERSION,
@@ -82,6 +83,7 @@ export function createJournal(title: string): Journal {
     title,
     createdAt: now,
     updatedAt: now,
+    background: { ...DEFAULT_BACKGROUND },
     items: [],
   };
   journalFile(id).write(JSON.stringify(journal));

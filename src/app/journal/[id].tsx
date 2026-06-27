@@ -5,12 +5,22 @@ import { useEffect, useRef, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Manipulable } from '../../features/canvas/components/Manipulable';
+import { BackgroundModal } from '../../features/canvas/components/BackgroundModal';
+import { Manipulable, Size } from '../../features/canvas/components/Manipulable';
+import { PaperBackground } from '../../features/canvas/components/PaperBackground';
 import { TextEditorModal } from '../../features/canvas/components/TextEditorModal';
 import { FontPicker } from '../../features/library/components/FontPicker';
+import { FramePicker } from '../../features/library/components/FramePicker';
+import { DEFAULT_FRAME, getFrame } from '../../features/library/data/frames';
 import { DEFAULT_FONT } from '../../core/theme/fonts';
 import { colors, radius } from '../../core/theme/tokens';
-import type { CanvasItem, Journal, Transform } from '../../data/models/journal';
+import {
+  CanvasItem,
+  DEFAULT_BACKGROUND,
+  Journal,
+  PaperBackground as Bg,
+  Transform,
+} from '../../data/models/journal';
 import {
   loadJournal,
   persistImage,
@@ -20,46 +30,67 @@ import {
 const nextId = () =>
   `it_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 
+const PHOTO_W = 220;
+const PHOTO_H = 280;
+const TEXT_W = 240;
+const TEXT_H = 80;
+
+// Rellena valores que journals antiguos pueden no tener.
+function normalize(j: Journal): Journal {
+  const items = j.items.map((i) => {
+    const base = {
+      ...i,
+      width: i.width ?? (i.kind === 'photo' ? PHOTO_W : TEXT_W),
+      height: i.height ?? (i.kind === 'photo' ? PHOTO_H : TEXT_H),
+    };
+    return i.kind === 'photo'
+      ? { ...base, frame: (i as any).frame ?? DEFAULT_FRAME.id }
+      : base;
+  }) as CanvasItem[];
+  return { ...j, background: j.background ?? DEFAULT_BACKGROUND, items };
+}
+
 export default function JournalEditor() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
   const [journal, setJournal] = useState<Journal | null>(null);
   const [items, setItems] = useState<CanvasItem[]>([]);
+  const [background, setBackground] = useState<Bg>(DEFAULT_BACKGROUND);
   const [loaded, setLoaded] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
-
   const [renaming, setRenaming] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
+  const [bgOpen, setBgOpen] = useState(false);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Cargar el journal por id.
   useEffect(() => {
     if (!id) return;
     const j = loadJournal(id);
     if (j) {
-      setJournal(j);
-      setItems(j.items);
+      const norm = normalize(j);
+      setJournal(norm);
+      setItems(norm.items);
+      setBackground(norm.background);
     }
     setLoaded(true);
   }, [id]);
 
-  // Autoguardado con debounce.
   useEffect(() => {
     if (!loaded || !journal) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(
-      () => saveJournal({ ...journal, items }),
+      () => saveJournal({ ...journal, background, items }),
       600
     );
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [items, journal, loaded]);
+  }, [items, background, journal, loaded]);
 
   const selectedItem = items.find((i) => i.id === selectedId) ?? null;
 
@@ -95,10 +126,22 @@ export default function JournalEditor() {
     setItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, ...t } : i)));
   };
 
+  const updateSize = (itemId: string, s: Size) => {
+    setItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, ...s } : i)));
+  };
+
   const setFont = (family: string) => {
     setItems((prev) =>
       prev.map((i) =>
         i.id === selectedId && i.kind === 'text' ? { ...i, font: family } : i
+      )
+    );
+  };
+
+  const setFrame = (frame: string) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === selectedId && i.kind === 'photo' ? { ...i, frame } : i
       )
     );
   };
@@ -114,7 +157,18 @@ export default function JournalEditor() {
       const itemId = nextId();
       setItems((prev) => [
         ...prev,
-        { id: itemId, kind: 'photo', uri, x: 90, y: 260, scale: 1, rotation: 0.05 },
+        {
+          id: itemId,
+          kind: 'photo',
+          uri,
+          frame: DEFAULT_FRAME.id,
+          x: 90,
+          y: 260,
+          width: PHOTO_W,
+          height: PHOTO_H,
+          scale: 1,
+          rotation: 0.05,
+        },
       ]);
       setSelectedId(itemId);
     }
@@ -131,6 +185,8 @@ export default function JournalEditor() {
         font: DEFAULT_FONT.family,
         x: 80,
         y: 200,
+        width: TEXT_W,
+        height: TEXT_H,
         scale: 1,
         rotation: 0,
       },
@@ -179,24 +235,18 @@ export default function JournalEditor() {
 
   const saveRename = () => {
     const title = titleDraft.trim();
-    if (journal && title.length > 0) {
-      setJournal({ ...journal, title });
-    }
+    if (journal && title.length > 0) setJournal({ ...journal, title });
     setRenaming(false);
   };
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: background.color }]}>
       <StatusBar style="dark" />
 
       {/* Cabecera */}
-      <SafeAreaView edges={['top']} style={styles.headerSafe}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: background.color }}>
         <View style={styles.header}>
-          <Pressable
-            onPress={() => router.back()}
-            style={styles.backBtn}
-            hitSlop={10}
-          >
+          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
             <Text style={styles.backIcon}>‹</Text>
           </Pressable>
           <Pressable style={styles.titleWrap} onPress={openRename} hitSlop={8}>
@@ -209,6 +259,8 @@ export default function JournalEditor() {
 
       {/* Lienzo */}
       <View style={styles.canvas}>
+        <PaperBackground color={background.color} pattern={background.pattern} />
+
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={() => setSelectedId(null)}
@@ -224,13 +276,23 @@ export default function JournalEditor() {
                 scale: item.scale,
                 rotation: item.rotation,
               }}
+              size={{ width: item.width, height: item.height }}
+              resizeMode={item.kind === 'photo' ? 'both' : 'horizontal'}
               selected={selectedId === item.id}
               onActivate={() => activate(item.id)}
               onTransformEnd={(t) => updateTransform(item.id, t)}
+              onResizeEnd={(s) => updateSize(item.id, s)}
             >
               {item.kind === 'photo' ? (
-                <View style={styles.photoFrame}>
-                  <Image source={{ uri: item.uri }} style={styles.photo} />
+                <View style={[styles.frame, getFrame(item.frame).container]}>
+                  <Image
+                    source={{ uri: item.uri }}
+                    style={[
+                      styles.photo,
+                      { borderRadius: getFrame(item.frame).imageRadius },
+                    ]}
+                    resizeMode="cover"
+                  />
                 </View>
               ) : (
                 <Text style={[styles.handwriting, { fontFamily: item.font }]}>
@@ -245,8 +307,13 @@ export default function JournalEditor() {
       {/* Barra inferior */}
       <SafeAreaView edges={['bottom']} style={styles.toolbarWrap}>
         {selectedItem?.kind === 'text' && (
-          <View style={styles.fontStrip}>
+          <View style={styles.strip}>
             <FontPicker value={selectedItem.font} onSelect={setFont} />
+          </View>
+        )}
+        {selectedItem?.kind === 'photo' && (
+          <View style={styles.strip}>
+            <FramePicker value={selectedItem.frame} onSelect={setFrame} />
           </View>
         )}
 
@@ -288,6 +355,12 @@ export default function JournalEditor() {
               >
                 <Text style={styles.btnNeutralText}>＋ Texto</Text>
               </Pressable>
+              <Pressable
+                style={[styles.toolButton, styles.btnNeutral]}
+                onPress={() => setBgOpen(true)}
+              >
+                <Text style={styles.btnNeutralText}>Fondo</Text>
+              </Pressable>
             </>
           )}
         </View>
@@ -300,7 +373,6 @@ export default function JournalEditor() {
         onSave={saveText}
         onCancel={cancelEdit}
       />
-
       <TextEditorModal
         visible={renaming}
         value={titleDraft}
@@ -310,6 +382,13 @@ export default function JournalEditor() {
         title="Título del journal"
         placeholder="Verano '26…"
       />
+      <BackgroundModal
+        visible={bgOpen}
+        color={background.color}
+        pattern={background.pattern}
+        onChange={setBackground}
+        onClose={() => setBgOpen(false)}
+      />
     </View>
   );
 }
@@ -317,10 +396,6 @@ export default function JournalEditor() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.kraft,
-  },
-  headerSafe: {
-    backgroundColor: colors.kraft,
   },
   header: {
     flexDirection: 'row',
@@ -340,9 +415,7 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     color: colors.ink,
   },
-  titleWrap: {
-    flex: 1,
-  },
+  titleWrap: { flex: 1 },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
@@ -352,11 +425,9 @@ const styles = StyleSheet.create({
     flex: 1,
     overflow: 'hidden',
   },
-  photoFrame: {
-    backgroundColor: colors.white,
-    padding: 8,
-    paddingBottom: 22,
-    borderRadius: 4,
+  frame: {
+    width: '100%',
+    height: '100%',
     shadowColor: colors.ink,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.22,
@@ -364,13 +435,11 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   photo: {
-    width: 220,
-    height: 280,
-    borderRadius: 2,
+    flex: 1,
     backgroundColor: colors.kraftLight,
   },
   handwriting: {
-    fontSize: 56,
+    fontSize: 40,
     color: colors.ink,
   },
   toolbarWrap: {
@@ -380,7 +449,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
   },
-  fontStrip: {
+  strip: {
     width: '100%',
     paddingBottom: 10,
   },
@@ -399,7 +468,7 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   toolButton: {
-    paddingHorizontal: 22,
+    paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: radius.pill,
   },
