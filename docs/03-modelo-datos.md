@@ -2,6 +2,15 @@
 
 > Última actualización: 2026-06-27.
 
+## Estado de la implementación (spike)
+
+Implementado en `src/data/models/journal.ts` (tipos) y
+`src/data/storage/journalStorage.ts` (load/save/persistImage, API `File`/`Directory`
+de expo-file-system SDK 54). Por simplicidad, el spike usa **un único** `journal.json`
+en la raíz de documentos y guarda `uri` absolutas de media. La estructura por carpetas y
+las rutas relativas (de abajo) llegan con el soporte multi-journal y el backup.
+`rotation` se guarda en **radianes**. Autoguardado con debounce; carga al abrir.
+
 ## Principio
 
 Todo es **local en el dispositivo**. Cada journal se guarda como una **carpeta** que

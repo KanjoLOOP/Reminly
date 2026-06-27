@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,51 +9,59 @@ import { TextEditorModal } from '../features/canvas/components/TextEditorModal';
 import { FontPicker } from '../features/library/components/FontPicker';
 import { DEFAULT_FONT } from '../core/theme/fonts';
 import { colors, radius } from '../core/theme/tokens';
+import type { CanvasItem, Transform } from '../data/models/journal';
+import {
+  loadJournal,
+  persistImage,
+  saveJournal,
+} from '../data/storage/journalStorage';
 
-type Item =
-  | { id: string; kind: 'photo'; uri: string; x: number; y: number; rot: number }
-  | {
-      id: string;
-      kind: 'text';
-      text: string;
-      font: string;
-      x: number;
-      y: number;
-      rot: number;
-    };
+const nextId = () =>
+  `it_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 
-let counter = 0;
-const nextId = () => `item_${counter++}`;
+// Contenido de la primera apertura (cuando aún no hay journal guardado).
+const seedItems = (): CanvasItem[] => [
+  {
+    id: nextId(),
+    kind: 'text',
+    text: "Verano '26",
+    font: DEFAULT_FONT.family,
+    x: 70,
+    y: 120,
+    scale: 1,
+    rotation: -0.04,
+  },
+];
 
 export default function CanvasScreen() {
-  const [items, setItems] = useState<Item[]>([
-    {
-      id: nextId(),
-      kind: 'photo',
-      uri: 'https://picsum.photos/seed/reminly/280/360',
-      x: 40,
-      y: 150,
-      rot: -4,
-    },
-    {
-      id: nextId(),
-      kind: 'text',
-      text: "Verano '26",
-      font: DEFAULT_FONT.family,
-      x: 70,
-      y: 90,
-      rot: -2,
-    },
-  ]);
+  const [items, setItems] = useState<CanvasItem[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // Edición de texto
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
 
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cargar al abrir.
+  useEffect(() => {
+    const journal = loadJournal();
+    setItems(journal ? journal.items : seedItems());
+    setLoaded(true);
+  }, []);
+
+  // Autoguardado con debounce cada vez que cambian los elementos.
+  useEffect(() => {
+    if (!loaded) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => saveJournal(items), 600);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [items, loaded]);
+
   const selectedItem = items.find((i) => i.id === selectedId) ?? null;
 
-  // Selecciona y trae al frente (mueve al final del array → se dibuja encima).
   const activate = (id: string) => {
     setSelectedId(id);
     setItems((prev) => {
@@ -82,6 +90,10 @@ export default function CanvasScreen() {
     setSelectedId(null);
   };
 
+  const updateTransform = (id: string, t: Transform) => {
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...t } : i)));
+  };
+
   const setFont = (family: string) => {
     setItems((prev) =>
       prev.map((i) =>
@@ -96,10 +108,11 @@ export default function CanvasScreen() {
       quality: 0.8,
     });
     if (!res.canceled) {
+      const uri = persistImage(res.assets[0].uri);
       const id = nextId();
       setItems((prev) => [
         ...prev,
-        { id, kind: 'photo', uri: res.assets[0].uri, x: 90, y: 260, rot: 3 },
+        { id, kind: 'photo', uri, x: 90, y: 260, scale: 1, rotation: 0.05 },
       ]);
       setSelectedId(id);
     }
@@ -109,7 +122,16 @@ export default function CanvasScreen() {
     const id = nextId();
     setItems((prev) => [
       ...prev,
-      { id, kind: 'text', text: '', font: DEFAULT_FONT.family, x: 80, y: 200, rot: 0 },
+      {
+        id,
+        kind: 'text',
+        text: '',
+        font: DEFAULT_FONT.family,
+        x: 80,
+        y: 200,
+        scale: 1,
+        rotation: 0,
+      },
     ]);
     setSelectedId(id);
     setDraft('');
@@ -128,7 +150,6 @@ export default function CanvasScreen() {
     if (!editingId) return;
     const text = draft.trim();
     if (text.length === 0) {
-      // Texto vacío → no tiene sentido conservarlo.
       deleteItem(editingId);
     } else {
       setItems((prev) =>
@@ -143,7 +164,6 @@ export default function CanvasScreen() {
   const cancelEdit = () => {
     if (!editingId) return;
     const item = items.find((i) => i.id === editingId);
-    // Si era un texto recién creado y sigue vacío, lo descartamos.
     if (item?.kind === 'text' && item.text.length === 0) {
       deleteItem(editingId);
     }
@@ -156,23 +176,24 @@ export default function CanvasScreen() {
 
       {/* Lienzo de papel kraft */}
       <View style={styles.canvas}>
-        {/* Capa de fondo: tocar el papel vacío deselecciona */}
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={() => setSelectedId(null)}
         />
 
-        {/* Capa de elementos. box-none deja pasar los toques al fondo
-            salvo donde hay un elemento real. */}
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
           {items.map((item) => (
             <Manipulable
               key={item.id}
-              initialX={item.x}
-              initialY={item.y}
-              initialRotation={item.rot}
+              transform={{
+                x: item.x,
+                y: item.y,
+                scale: item.scale,
+                rotation: item.rotation,
+              }}
               selected={selectedId === item.id}
               onActivate={() => activate(item.id)}
+              onTransformEnd={(t) => updateTransform(item.id, t)}
             >
               {item.kind === 'photo' ? (
                 <View style={styles.photoFrame}>
@@ -190,7 +211,6 @@ export default function CanvasScreen() {
 
       {/* Barra inferior */}
       <SafeAreaView edges={['bottom']} style={styles.toolbarWrap}>
-        {/* Selector de fuente: solo cuando hay un texto seleccionado */}
         {selectedItem?.kind === 'text' && (
           <View style={styles.fontStrip}>
             <FontPicker value={selectedItem.font} onSelect={setFont} />

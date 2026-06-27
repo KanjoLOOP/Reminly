@@ -8,41 +8,53 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { colors } from '../../../core/theme/tokens';
+import type { Transform } from '../../../data/models/journal';
 
 type Props = {
   children: React.ReactNode;
-  initialX?: number;
-  initialY?: number;
-  initialRotation?: number; // en grados
+  /** Transformación inicial (al montar). */
+  transform: Transform;
   selected?: boolean;
-  /** Se llama al tocar el elemento (para seleccionarlo y traerlo al frente). */
+  /** Al tocar el elemento (seleccionar + traer al frente). */
   onActivate?: () => void;
+  /** Al soltar un gesto, con la transformación final (para persistir). */
+  onTransformEnd?: (t: Transform) => void;
 };
 
 /**
- * Envuelve cualquier elemento del lienzo y lo hace manipulable con gestos:
- * arrastrar (1 dedo), escalar (pinza) y rotar (2 dedos), de forma simultánea.
- * Toda la transformación corre en el hilo de UI (worklets) para ir a 60/120 fps.
- * Cuando está seleccionado, dibuja un marco con tiradores en las esquinas.
+ * Hace manipulable a cualquier elemento del lienzo: arrastrar (1 dedo), escalar
+ * (pinza) y rotar (2 dedos), simultáneamente y en el hilo de UI. Al terminar un
+ * gesto reporta la transformación para que el padre la guarde.
  */
 export function Manipulable({
   children,
-  initialX = 0,
-  initialY = 0,
-  initialRotation = 0,
+  transform,
   selected = false,
   onActivate,
+  onTransformEnd,
 }: Props) {
-  const tx = useSharedValue(initialX);
-  const ty = useSharedValue(initialY);
-  const savedTx = useSharedValue(initialX);
-  const savedTy = useSharedValue(initialY);
+  const tx = useSharedValue(transform.x);
+  const ty = useSharedValue(transform.y);
+  const savedTx = useSharedValue(transform.x);
+  const savedTy = useSharedValue(transform.y);
 
-  const scale = useSharedValue(1);
-  const savedScale = useSharedValue(1);
+  const scale = useSharedValue(transform.scale);
+  const savedScale = useSharedValue(transform.scale);
 
-  const rotation = useSharedValue((initialRotation * Math.PI) / 180);
-  const savedRotation = useSharedValue((initialRotation * Math.PI) / 180);
+  const rotation = useSharedValue(transform.rotation);
+  const savedRotation = useSharedValue(transform.rotation);
+
+  const commit = () => {
+    'worklet';
+    if (onTransformEnd) {
+      runOnJS(onTransformEnd)({
+        x: tx.value,
+        y: ty.value,
+        scale: scale.value,
+        rotation: rotation.value,
+      });
+    }
+  };
 
   const pan = Gesture.Pan()
     .averageTouches(true)
@@ -58,6 +70,7 @@ export function Manipulable({
     .onEnd(() => {
       savedTx.value = tx.value;
       savedTy.value = ty.value;
+      commit();
     });
 
   const pinch = Gesture.Pinch()
@@ -66,6 +79,7 @@ export function Manipulable({
     })
     .onEnd(() => {
       savedScale.value = scale.value;
+      commit();
     });
 
   const rotate = Gesture.Rotation()
@@ -74,6 +88,7 @@ export function Manipulable({
     })
     .onEnd(() => {
       savedRotation.value = rotation.value;
+      commit();
     });
 
   const gesture = Gesture.Simultaneous(pan, pinch, rotate);
