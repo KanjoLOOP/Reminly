@@ -5,6 +5,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Manipulable } from '../features/canvas/components/Manipulable';
+import { TextEditorModal } from '../features/canvas/components/TextEditorModal';
 import { FontPicker } from '../features/library/components/FontPicker';
 import { DEFAULT_FONT } from '../core/theme/fonts';
 import { colors, radius } from '../core/theme/tokens';
@@ -45,6 +46,10 @@ export default function CanvasScreen() {
     },
   ]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Edición de texto
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
 
   const selectedItem = items.find((i) => i.id === selectedId) ?? null;
 
@@ -100,6 +105,51 @@ export default function CanvasScreen() {
     }
   };
 
+  const addText = () => {
+    const id = nextId();
+    setItems((prev) => [
+      ...prev,
+      { id, kind: 'text', text: '', font: DEFAULT_FONT.family, x: 80, y: 200, rot: 0 },
+    ]);
+    setSelectedId(id);
+    setDraft('');
+    setEditingId(id);
+  };
+
+  const openEditor = (id: string) => {
+    const item = items.find((i) => i.id === id);
+    if (item?.kind === 'text') {
+      setDraft(item.text);
+      setEditingId(id);
+    }
+  };
+
+  const saveText = () => {
+    if (!editingId) return;
+    const text = draft.trim();
+    if (text.length === 0) {
+      // Texto vacío → no tiene sentido conservarlo.
+      deleteItem(editingId);
+    } else {
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === editingId && i.kind === 'text' ? { ...i, text } : i
+        )
+      );
+    }
+    setEditingId(null);
+  };
+
+  const cancelEdit = () => {
+    if (!editingId) return;
+    const item = items.find((i) => i.id === editingId);
+    // Si era un texto recién creado y sigue vacío, lo descartamos.
+    if (item?.kind === 'text' && item.text.length === 0) {
+      deleteItem(editingId);
+    }
+    setEditingId(null);
+  };
+
   return (
     <View style={styles.screen}>
       <StatusBar style="dark" />
@@ -148,31 +198,55 @@ export default function CanvasScreen() {
         )}
 
         <View style={styles.toolbar}>
-          {selectedId ? (
+          {selectedItem ? (
             <>
+              {selectedItem.kind === 'text' && (
+                <Pressable
+                  style={[styles.toolButton, styles.btnNeutral]}
+                  onPress={() => openEditor(selectedItem.id)}
+                >
+                  <Text style={styles.btnNeutralText}>Editar</Text>
+                </Pressable>
+              )}
               <Pressable
                 style={[styles.toolButton, styles.btnNeutral]}
-                onPress={() => sendToBack(selectedId)}
+                onPress={() => sendToBack(selectedItem.id)}
               >
                 <Text style={styles.btnNeutralText}>Al fondo</Text>
               </Pressable>
               <Pressable
                 style={[styles.toolButton, styles.btnDanger]}
-                onPress={() => deleteItem(selectedId)}
+                onPress={() => deleteItem(selectedItem.id)}
               >
                 <Text style={styles.btnDangerText}>Borrar</Text>
               </Pressable>
             </>
           ) : (
-            <Pressable
-              style={[styles.toolButton, styles.btnAccent]}
-              onPress={addPhoto}
-            >
-              <Text style={styles.btnAccentText}>＋ Foto</Text>
-            </Pressable>
+            <>
+              <Pressable
+                style={[styles.toolButton, styles.btnAccent]}
+                onPress={addPhoto}
+              >
+                <Text style={styles.btnAccentText}>＋ Foto</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.toolButton, styles.btnNeutral]}
+                onPress={addText}
+              >
+                <Text style={styles.btnNeutralText}>＋ Texto</Text>
+              </Pressable>
+            </>
           )}
         </View>
       </SafeAreaView>
+
+      <TextEditorModal
+        visible={editingId !== null}
+        value={draft}
+        onChangeText={setDraft}
+        onSave={saveText}
+        onCancel={cancelEdit}
+      />
     </View>
   );
 }
