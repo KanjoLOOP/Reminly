@@ -5,11 +5,21 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Manipulable } from '../features/canvas/components/Manipulable';
+import { FontPicker } from '../features/library/components/FontPicker';
+import { DEFAULT_FONT } from '../core/theme/fonts';
 import { colors, radius } from '../core/theme/tokens';
 
 type Item =
   | { id: string; kind: 'photo'; uri: string; x: number; y: number; rot: number }
-  | { id: string; kind: 'text'; text: string; x: number; y: number; rot: number };
+  | {
+      id: string;
+      kind: 'text';
+      text: string;
+      font: string;
+      x: number;
+      y: number;
+      rot: number;
+    };
 
 let counter = 0;
 const nextId = () => `item_${counter++}`;
@@ -24,9 +34,19 @@ export default function CanvasScreen() {
       y: 150,
       rot: -4,
     },
-    { id: nextId(), kind: 'text', text: "Verano '26", x: 70, y: 90, rot: -2 },
+    {
+      id: nextId(),
+      kind: 'text',
+      text: "Verano '26",
+      font: DEFAULT_FONT.family,
+      x: 70,
+      y: 90,
+      rot: -2,
+    },
   ]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const selectedItem = items.find((i) => i.id === selectedId) ?? null;
 
   // Selecciona y trae al frente (mueve al final del array → se dibuja encima).
   const activate = (id: string) => {
@@ -55,6 +75,14 @@ export default function CanvasScreen() {
   const deleteItem = (id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
     setSelectedId(null);
+  };
+
+  const setFont = (family: string) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === selectedId && i.kind === 'text' ? { ...i, font: family } : i
+      )
+    );
   };
 
   const addPhoto = async () => {
@@ -101,7 +129,9 @@ export default function CanvasScreen() {
                   <Image source={{ uri: item.uri }} style={styles.photo} />
                 </View>
               ) : (
-                <Text style={styles.handwriting}>{item.text}</Text>
+                <Text style={[styles.handwriting, { fontFamily: item.font }]}>
+                  {item.text}
+                </Text>
               )}
             </Manipulable>
           ))}
@@ -110,6 +140,13 @@ export default function CanvasScreen() {
 
       {/* Barra inferior */}
       <SafeAreaView edges={['bottom']} style={styles.toolbarWrap}>
+        {/* Selector de fuente: solo cuando hay un texto seleccionado */}
+        {selectedItem?.kind === 'text' && (
+          <View style={styles.fontStrip}>
+            <FontPicker value={selectedItem.font} onSelect={setFont} />
+          </View>
+        )}
+
         <View style={styles.toolbar}>
           {selectedId ? (
             <>
@@ -167,9 +204,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.kraftLight,
   },
   handwriting: {
-    fontSize: 44,
+    fontSize: 56,
     color: colors.ink,
-    // TODO: cargar la fuente Caveat con expo-font para el look manuscrito
   },
   toolbarWrap: {
     position: 'absolute',
@@ -177,6 +213,10 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     alignItems: 'center',
+  },
+  fontStrip: {
+    width: '100%',
+    paddingBottom: 10,
   },
   toolbar: {
     flexDirection: 'row',

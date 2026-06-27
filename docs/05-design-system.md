@@ -55,11 +55,22 @@ El diseño valida la dirección propuesta. Tokens reales ya extraídos a
 
 > Pendiente: confirmar con los mockups y fijar tokens en `src/core/theme`.
 
-## Tipografía (borrador)
+## Tipografía
 
-- **Manuscrita** para títulos/entradas del journal (p.ej. Caveat, Patrick Hand).
-- **Sans redondeada** para la UI (legible, amable; p.ej. Nunito, Quicksand).
+- **Sans redondeada** para la UI (pendiente de cargar: Nunito).
 - Nunca una sans corporativa neutra para el contenido del journal.
+
+### Catálogo de fuentes del usuario (manuscritas/decorativas)
+
+Cargadas con `expo-font` vía `@expo-google-fonts/*`. Definidas en
+[`src/core/theme/fonts.ts`](../src/core/theme/fonts.ts). El usuario elige por elemento de
+texto; la predeterminada es **Caveat**.
+
+Caveat (default), Dancing Script, Satisfy, Patrick Hand, Shadows Into Light, Indie Flower,
+Kalam, Amatic SC.
+
+Para añadir una más: instalar su paquete, importarla en `fonts.ts` y añadirla a
+`fontAssets` + `FONT_OPTIONS`.
 
 ## Pantallas a diseñar (orden sugerido)
 

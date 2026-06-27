@@ -70,9 +70,10 @@ export const spacing = {
 } as const;
 
 export const typography = {
-  // Manuscrita: títulos del journal y contenido escrito a mano
-  handwriting: 'Caveat',
-  // Sans redondeada: toda la UI
+  // Manuscrita: títulos del journal y contenido escrito a mano (cargada con expo-font)
+  handwriting: 'Caveat_400Regular',
+  handwritingBold: 'Caveat_700Bold',
+  // Sans redondeada para la UI (pendiente de cargar: Nunito)
   ui: 'Nunito',
   sizes: {
     caption: 12,
