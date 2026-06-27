@@ -32,6 +32,18 @@ export type CanvasItem = PhotoItem | TextItem;
 
 export type Journal = {
   schemaVersion: number;
+  id: string;
+  title: string;
+  createdAt: string;
   updatedAt: string;
   items: CanvasItem[];
+};
+
+/** Versión ligera para la estantería (home), sin cargar todos los elementos. */
+export type JournalSummary = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  coverUri?: string;
+  count: number;
 };

@@ -1,340 +1,195 @@
 import { StatusBar } from 'expo-status-bar';
-import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import {
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Manipulable } from '../features/canvas/components/Manipulable';
-import { TextEditorModal } from '../features/canvas/components/TextEditorModal';
-import { FontPicker } from '../features/library/components/FontPicker';
-import { DEFAULT_FONT } from '../core/theme/fonts';
 import { colors, radius } from '../core/theme/tokens';
-import type { CanvasItem, Transform } from '../data/models/journal';
+import type { JournalSummary } from '../data/models/journal';
 import {
-  loadJournal,
-  persistImage,
-  saveJournal,
+  createJournal,
+  deleteJournal,
+  listJournals,
 } from '../data/storage/journalStorage';
 
-const nextId = () =>
-  `it_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+export default function Home() {
+  const router = useRouter();
+  const [journals, setJournals] = useState<JournalSummary[]>([]);
 
-// Contenido de la primera apertura (cuando aún no hay journal guardado).
-const seedItems = (): CanvasItem[] => [
-  {
-    id: nextId(),
-    kind: 'text',
-    text: "Verano '26",
-    font: DEFAULT_FONT.family,
-    x: 70,
-    y: 120,
-    scale: 1,
-    rotation: -0.04,
-  },
-];
+  // Recargar la lista cada vez que la pantalla recupera el foco.
+  useFocusEffect(
+    useCallback(() => {
+      setJournals(listJournals());
+    }, [])
+  );
 
-export default function CanvasScreen() {
-  const [items, setItems] = useState<CanvasItem[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState('');
-
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Cargar al abrir.
-  useEffect(() => {
-    const journal = loadJournal();
-    setItems(journal ? journal.items : seedItems());
-    setLoaded(true);
-  }, []);
-
-  // Autoguardado con debounce cada vez que cambian los elementos.
-  useEffect(() => {
-    if (!loaded) return;
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => saveJournal(items), 600);
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-    };
-  }, [items, loaded]);
-
-  const selectedItem = items.find((i) => i.id === selectedId) ?? null;
-
-  const activate = (id: string) => {
-    setSelectedId(id);
-    setItems((prev) => {
-      const idx = prev.findIndex((i) => i.id === id);
-      if (idx === -1 || idx === prev.length - 1) return prev;
-      const copy = [...prev];
-      const [picked] = copy.splice(idx, 1);
-      copy.push(picked);
-      return copy;
-    });
+  const createNew = () => {
+    const j = createJournal('Nuevo recuerdo');
+    router.push(`/journal/${j.id}`);
   };
 
-  const sendToBack = (id: string) => {
-    setItems((prev) => {
-      const idx = prev.findIndex((i) => i.id === id);
-      if (idx <= 0) return prev;
-      const copy = [...prev];
-      const [picked] = copy.splice(idx, 1);
-      copy.unshift(picked);
-      return copy;
-    });
-  };
-
-  const deleteItem = (id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id));
-    setSelectedId(null);
-  };
-
-  const updateTransform = (id: string, t: Transform) => {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...t } : i)));
-  };
-
-  const setFont = (family: string) => {
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === selectedId && i.kind === 'text' ? { ...i, font: family } : i
-      )
+  const confirmDelete = (item: JournalSummary) => {
+    Alert.alert(
+      'Borrar journal',
+      `¿Borrar "${item.title}"? No se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Borrar',
+          style: 'destructive',
+          onPress: () => {
+            deleteJournal(item.id);
+            setJournals(listJournals());
+          },
+        },
+      ]
     );
   };
 
-  const addPhoto = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-    });
-    if (!res.canceled) {
-      const uri = persistImage(res.assets[0].uri);
-      const id = nextId();
-      setItems((prev) => [
-        ...prev,
-        { id, kind: 'photo', uri, x: 90, y: 260, scale: 1, rotation: 0.05 },
-      ]);
-      setSelectedId(id);
-    }
-  };
-
-  const addText = () => {
-    const id = nextId();
-    setItems((prev) => [
-      ...prev,
-      {
-        id,
-        kind: 'text',
-        text: '',
-        font: DEFAULT_FONT.family,
-        x: 80,
-        y: 200,
-        scale: 1,
-        rotation: 0,
-      },
-    ]);
-    setSelectedId(id);
-    setDraft('');
-    setEditingId(id);
-  };
-
-  const openEditor = (id: string) => {
-    const item = items.find((i) => i.id === id);
-    if (item?.kind === 'text') {
-      setDraft(item.text);
-      setEditingId(id);
-    }
-  };
-
-  const saveText = () => {
-    if (!editingId) return;
-    const text = draft.trim();
-    if (text.length === 0) {
-      deleteItem(editingId);
-    } else {
-      setItems((prev) =>
-        prev.map((i) =>
-          i.id === editingId && i.kind === 'text' ? { ...i, text } : i
-        )
-      );
-    }
-    setEditingId(null);
-  };
-
-  const cancelEdit = () => {
-    if (!editingId) return;
-    const item = items.find((i) => i.id === editingId);
-    if (item?.kind === 'text' && item.text.length === 0) {
-      deleteItem(editingId);
-    }
-    setEditingId(null);
-  };
-
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
 
-      {/* Lienzo de papel kraft */}
-      <View style={styles.canvas}>
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={() => setSelectedId(null)}
-        />
-
-        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-          {items.map((item) => (
-            <Manipulable
-              key={item.id}
-              transform={{
-                x: item.x,
-                y: item.y,
-                scale: item.scale,
-                rotation: item.rotation,
-              }}
-              selected={selectedId === item.id}
-              onActivate={() => activate(item.id)}
-              onTransformEnd={(t) => updateTransform(item.id, t)}
-            >
-              {item.kind === 'photo' ? (
-                <View style={styles.photoFrame}>
-                  <Image source={{ uri: item.uri }} style={styles.photo} />
-                </View>
-              ) : (
-                <Text style={[styles.handwriting, { fontFamily: item.font }]}>
-                  {item.text}
-                </Text>
-              )}
-            </Manipulable>
-          ))}
-        </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>Mis recuerdos</Text>
+        <Text style={styles.subtitle}>
+          {journals.length === 0
+            ? 'Aún no tienes ninguna libreta'
+            : `${journals.length} ${journals.length === 1 ? 'libreta' : 'libretas'}`}
+        </Text>
       </View>
 
-      {/* Barra inferior */}
-      <SafeAreaView edges={['bottom']} style={styles.toolbarWrap}>
-        {selectedItem?.kind === 'text' && (
-          <View style={styles.fontStrip}>
-            <FontPicker value={selectedItem.font} onSelect={setFont} />
-          </View>
-        )}
+      <ScrollView contentContainerStyle={styles.grid}>
+        {/* Tarjeta de crear */}
+        <Pressable style={[styles.card, styles.newCard]} onPress={createNew}>
+          <Text style={styles.plus}>＋</Text>
+          <Text style={styles.newText}>Nueva libreta</Text>
+        </Pressable>
 
-        <View style={styles.toolbar}>
-          {selectedItem ? (
-            <>
-              {selectedItem.kind === 'text' && (
-                <Pressable
-                  style={[styles.toolButton, styles.btnNeutral]}
-                  onPress={() => openEditor(selectedItem.id)}
-                >
-                  <Text style={styles.btnNeutralText}>Editar</Text>
-                </Pressable>
+        {journals.map((j) => (
+          <Pressable
+            key={j.id}
+            style={styles.card}
+            onPress={() => router.push(`/journal/${j.id}`)}
+            onLongPress={() => confirmDelete(j)}
+          >
+            <View style={styles.cover}>
+              {j.coverUri ? (
+                <Image source={{ uri: j.coverUri }} style={styles.coverImg} />
+              ) : (
+                <View style={styles.coverEmpty}>
+                  <Text style={styles.coverEmptyText}>✎</Text>
+                </View>
               )}
-              <Pressable
-                style={[styles.toolButton, styles.btnNeutral]}
-                onPress={() => sendToBack(selectedItem.id)}
-              >
-                <Text style={styles.btnNeutralText}>Al fondo</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.toolButton, styles.btnDanger]}
-                onPress={() => deleteItem(selectedItem.id)}
-              >
-                <Text style={styles.btnDangerText}>Borrar</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <Pressable
-                style={[styles.toolButton, styles.btnAccent]}
-                onPress={addPhoto}
-              >
-                <Text style={styles.btnAccentText}>＋ Foto</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.toolButton, styles.btnNeutral]}
-                onPress={addText}
-              >
-                <Text style={styles.btnNeutralText}>＋ Texto</Text>
-              </Pressable>
-            </>
-          )}
-        </View>
-      </SafeAreaView>
-
-      <TextEditorModal
-        visible={editingId !== null}
-        value={draft}
-        onChangeText={setDraft}
-        onSave={saveText}
-        onCancel={cancelEdit}
-      />
-    </View>
+            </View>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {j.title}
+            </Text>
+            <Text style={styles.cardMeta}>
+              {j.count} {j.count === 1 ? 'elemento' : 'elementos'}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.kraft,
+    backgroundColor: colors.paperCream,
   },
-  canvas: {
-    flex: 1,
-    overflow: 'hidden',
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
   },
-  photoFrame: {
-    backgroundColor: colors.white,
-    padding: 8,
-    paddingBottom: 22,
-    borderRadius: 4,
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  photo: {
-    width: 220,
-    height: 280,
-    borderRadius: 2,
-    backgroundColor: colors.kraftLight,
-  },
-  handwriting: {
-    fontSize: 56,
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
     color: colors.ink,
   },
-  toolbarWrap: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
+  subtitle: {
+    fontSize: 14,
+    color: colors.inkMuted,
+    marginTop: 2,
   },
-  fontStrip: {
-    width: '100%',
-    paddingBottom: 10,
-  },
-  toolbar: {
+  grid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 12,
+    paddingBottom: 24,
+    gap: 12,
+  },
+  card: {
+    width: '47%',
     backgroundColor: colors.paperLight,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    borderRadius: radius.pill,
-    marginBottom: 12,
-    gap: 8,
+    borderRadius: radius.lg,
+    padding: 10,
     shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 14,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  toolButton: {
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-    borderRadius: radius.pill,
+  cover: {
+    height: 150,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    backgroundColor: colors.kraftLight,
   },
-  btnAccent: { backgroundColor: colors.rose },
-  btnAccentText: { color: colors.white, fontSize: 16, fontWeight: '700' },
-  btnNeutral: { backgroundColor: colors.paperCream },
-  btnNeutralText: { color: colors.ink, fontSize: 16, fontWeight: '600' },
-  btnDanger: { backgroundColor: colors.roseDeep },
-  btnDangerText: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  coverImg: {
+    width: '100%',
+    height: '100%',
+  },
+  coverEmpty: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.kraft,
+  },
+  coverEmptyText: {
+    fontSize: 40,
+    color: colors.paperLight,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.ink,
+    marginTop: 8,
+  },
+  cardMeta: {
+    fontSize: 12,
+    color: colors.inkMuted,
+    marginTop: 1,
+  },
+  newCard: {
+    height: 222,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.paperLight,
+    borderWidth: 2,
+    borderColor: colors.kraftMuted,
+    borderStyle: 'dashed',
+  },
+  plus: {
+    fontSize: 44,
+    color: colors.rose,
+    fontWeight: '300',
+  },
+  newText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.inkMuted,
+    marginTop: 4,
+  },
 });

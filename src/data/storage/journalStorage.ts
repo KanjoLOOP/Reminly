@@ -1,69 +1,146 @@
 /**
- * Persistencia local del journal con la API de expo-file-system (SDK 54+):
- * clases File/Directory y constantes Paths. Operaciones síncronas.
+ * Persistencia local multi-journal con la API de expo-file-system (SDK 54+).
+ * Estructura en disco (ver docs/03-modelo-datos.md):
  *
- * Nota: por ahora un único journal en la raíz de documentos. Cuando haya varios
- * journals se pasará a la estructura por carpetas de docs/03-modelo-datos.md.
+ *   documentDirectory/journals/<id>/journal.json
+ *   documentDirectory/journals/<id>/media/<file>
+ *
+ * Operaciones síncronas (File/Directory). rotation se guarda en radianes.
  */
 import { Directory, File, Paths } from 'expo-file-system';
 
 import {
   CanvasItem,
   Journal,
+  JournalSummary,
   SCHEMA_VERSION,
 } from '../models/journal';
 
+const JOURNALS_DIR = 'journals';
 const JOURNAL_FILE = 'journal.json';
 const MEDIA_DIR = 'media';
 
-/** Lee el journal guardado. Devuelve null si no existe o está corrupto. */
-export function loadJournal(): Journal | null {
+function journalsRoot(): Directory {
+  const dir = new Directory(Paths.document, JOURNALS_DIR);
+  if (!dir.exists) dir.create();
+  return dir;
+}
+
+function journalDir(id: string): Directory {
+  return new Directory(journalsRoot(), id);
+}
+
+function journalFile(id: string): File {
+  return new File(journalDir(id), JOURNAL_FILE);
+}
+
+const newId = (prefix: string) =>
+  `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+
+/** Lista los journals para la estantería, del más reciente al más antiguo. */
+export function listJournals(): JournalSummary[] {
   try {
-    const file = new File(Paths.document, JOURNAL_FILE);
+    const entries = journalsRoot().list();
+    const summaries: JournalSummary[] = [];
+    for (const entry of entries) {
+      if (!(entry instanceof Directory)) continue;
+      const file = new File(entry, JOURNAL_FILE);
+      if (!file.exists) continue;
+      try {
+        const j = JSON.parse(file.textSync()) as Journal;
+        const cover = j.items.find((i) => i.kind === 'photo');
+        summaries.push({
+          id: j.id,
+          title: j.title,
+          updatedAt: j.updatedAt,
+          coverUri: cover && cover.kind === 'photo' ? cover.uri : undefined,
+          count: j.items.length,
+        });
+      } catch {
+        // journal corrupto: lo ignoramos
+      }
+    }
+    summaries.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+    return summaries;
+  } catch {
+    return [];
+  }
+}
+
+/** Crea un journal vacío y devuelve su modelo. */
+export function createJournal(title: string): Journal {
+  const id = newId('j');
+  const now = new Date().toISOString();
+  const dir = journalDir(id);
+  if (!dir.exists) dir.create();
+  const media = new Directory(dir, MEDIA_DIR);
+  if (!media.exists) media.create();
+
+  const journal: Journal = {
+    schemaVersion: SCHEMA_VERSION,
+    id,
+    title,
+    createdAt: now,
+    updatedAt: now,
+    items: [],
+  };
+  journalFile(id).write(JSON.stringify(journal));
+  return journal;
+}
+
+export function loadJournal(id: string): Journal | null {
+  try {
+    const file = journalFile(id);
     if (!file.exists) return null;
-    const parsed = JSON.parse(file.textSync()) as Journal;
-    if (!parsed || !Array.isArray(parsed.items)) return null;
-    return parsed;
+    const j = JSON.parse(file.textSync()) as Journal;
+    if (!j || !Array.isArray(j.items)) return null;
+    return j;
   } catch {
     return null;
   }
 }
 
-/** Guarda los elementos del lienzo (sobrescribe el journal). */
-export function saveJournal(items: CanvasItem[]): void {
+export function saveJournal(journal: Journal): void {
   try {
-    const journal: Journal = {
+    const updated: Journal = {
+      ...journal,
       schemaVersion: SCHEMA_VERSION,
       updatedAt: new Date().toISOString(),
-      items,
     };
-    const file = new File(Paths.document, JOURNAL_FILE);
-    file.write(JSON.stringify(journal));
+    journalFile(journal.id).write(JSON.stringify(updated));
   } catch (e) {
     console.warn('No se pudo guardar el journal', e);
   }
 }
 
-/**
- * Copia una imagen elegida (uri temporal) a documentDirectory/media y devuelve
- * la uri persistente. Si algo falla, devuelve la uri original como fallback.
- */
-export function persistImage(srcUri: string): string {
+export function deleteJournal(id: string): void {
   try {
-    const mediaDir = new Directory(Paths.document, MEDIA_DIR);
-    if (!mediaDir.exists) mediaDir.create();
+    const dir = journalDir(id);
+    if (dir.exists) dir.delete();
+  } catch (e) {
+    console.warn('No se pudo borrar el journal', e);
+  }
+}
+
+/**
+ * Copia una imagen elegida (uri temporal) a la carpeta media del journal y
+ * devuelve la uri persistente. Si falla, devuelve la original como fallback.
+ */
+export function persistImage(journalId: string, srcUri: string): string {
+  try {
+    const media = new Directory(journalDir(journalId), MEDIA_DIR);
+    if (!media.exists) media.create();
 
     const cleanUri = srcUri.split('?')[0];
     const extMatch = cleanUri.match(/\.(\w+)$/);
     const ext = extMatch ? extMatch[1] : 'jpg';
     const name = `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
-    const src = new File(srcUri);
-    const dest = new File(mediaDir, name);
-    src.copy(dest);
+    const dest = new File(media, name);
+    new File(srcUri).copy(dest);
     return dest.uri;
   } catch (e) {
-    console.warn('No se pudo copiar la imagen a media/, se usa la uri original', e);
+    console.warn('No se pudo copiar la imagen a media/', e);
     return srcUri;
   }
 }

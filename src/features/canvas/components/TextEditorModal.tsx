@@ -15,6 +15,8 @@ type Props = {
   onChangeText: (t: string) => void;
   onSave: () => void;
   onCancel: () => void;
+  title?: string;
+  placeholder?: string;
 };
 
 /**
@@ -28,6 +30,8 @@ export function TextEditorModal({
   onChangeText,
   onSave,
   onCancel,
+  title = 'Editar texto',
+  placeholder = 'Escribe algo…',
 }: Props) {
   return (
     <Modal
@@ -38,12 +42,12 @@ export function TextEditorModal({
     >
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <Text style={styles.title}>Editar texto</Text>
+          <Text style={styles.title}>{title}</Text>
           <TextInput
             style={styles.input}
             value={value}
             onChangeText={onChangeText}
-            placeholder="Escribe algo…"
+            placeholder={placeholder}
             placeholderTextColor={colors.inkFaint}
             autoFocus
             multiline

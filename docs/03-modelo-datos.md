@@ -2,14 +2,17 @@
 
 > Última actualización: 2026-06-27.
 
-## Estado de la implementación (spike)
+## Estado de la implementación
 
 Implementado en `src/data/models/journal.ts` (tipos) y
-`src/data/storage/journalStorage.ts` (load/save/persistImage, API `File`/`Directory`
-de expo-file-system SDK 54). Por simplicidad, el spike usa **un único** `journal.json`
-en la raíz de documentos y guarda `uri` absolutas de media. La estructura por carpetas y
-las rutas relativas (de abajo) llegan con el soporte multi-journal y el backup.
-`rotation` se guarda en **radianes**. Autoguardado con debounce; carga al abrir.
+`src/data/storage/journalStorage.ts` (API `File`/`Directory` de expo-file-system SDK 54).
+Ya **multi-journal** con la estructura por carpetas `journals/<id>/journal.json` + `media/`.
+Funciones: `listJournals`, `createJournal`, `loadJournal`, `saveJournal`, `deleteJournal`,
+`persistImage`. `rotation` en **radianes**; media con `uri` absoluta (las rutas relativas
+llegan con el backup). Autoguardado con debounce; carga por id.
+
+Navegación (expo-router): `app/index.tsx` = estantería (home), `app/journal/[id].tsx` =
+editor del lienzo. La home recarga la lista con `useFocusEffect` al volver del editor.
 
 ## Principio
 
