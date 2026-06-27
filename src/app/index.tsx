@@ -26,9 +26,11 @@ export default function CanvasScreen() {
     },
     { id: nextId(), kind: 'text', text: "Verano '26", x: 70, y: 90, rot: -2 },
   ]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // Mueve el elemento tocado al final del array → se renderiza encima.
-  const bringToFront = (id: string) => {
+  // Selecciona y trae al frente (mueve al final del array → se dibuja encima).
+  const activate = (id: string) => {
+    setSelectedId(id);
     setItems((prev) => {
       const idx = prev.findIndex((i) => i.id === id);
       if (idx === -1 || idx === prev.length - 1) return prev;
@@ -39,23 +41,34 @@ export default function CanvasScreen() {
     });
   };
 
+  const sendToBack = (id: string) => {
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i.id === id);
+      if (idx <= 0) return prev;
+      const copy = [...prev];
+      const [picked] = copy.splice(idx, 1);
+      copy.unshift(picked);
+      return copy;
+    });
+  };
+
+  const deleteItem = (id: string) => {
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    setSelectedId(null);
+  };
+
   const addPhoto = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.8,
     });
     if (!res.canceled) {
+      const id = nextId();
       setItems((prev) => [
         ...prev,
-        {
-          id: nextId(),
-          kind: 'photo',
-          uri: res.assets[0].uri,
-          x: 90,
-          y: 260,
-          rot: 3,
-        },
+        { id, kind: 'photo', uri: res.assets[0].uri, x: 90, y: 260, rot: 3 },
       ]);
+      setSelectedId(id);
     }
   };
 
@@ -65,39 +78,62 @@ export default function CanvasScreen() {
 
       {/* Lienzo de papel kraft */}
       <View style={styles.canvas}>
-        {items.map((item) =>
-          item.kind === 'photo' ? (
+        {/* Capa de fondo: tocar el papel vacío deselecciona */}
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => setSelectedId(null)}
+        />
+
+        {/* Capa de elementos. box-none deja pasar los toques al fondo
+            salvo donde hay un elemento real. */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+          {items.map((item) => (
             <Manipulable
               key={item.id}
               initialX={item.x}
               initialY={item.y}
               initialRotation={item.rot}
-              onActivate={() => bringToFront(item.id)}
+              selected={selectedId === item.id}
+              onActivate={() => activate(item.id)}
             >
-              <View style={styles.photoFrame}>
-                <Image source={{ uri: item.uri }} style={styles.photo} />
-              </View>
+              {item.kind === 'photo' ? (
+                <View style={styles.photoFrame}>
+                  <Image source={{ uri: item.uri }} style={styles.photo} />
+                </View>
+              ) : (
+                <Text style={styles.handwriting}>{item.text}</Text>
+              )}
             </Manipulable>
-          ) : (
-            <Manipulable
-              key={item.id}
-              initialX={item.x}
-              initialY={item.y}
-              initialRotation={item.rot}
-              onActivate={() => bringToFront(item.id)}
-            >
-              <Text style={styles.handwriting}>{item.text}</Text>
-            </Manipulable>
-          )
-        )}
+          ))}
+        </View>
       </View>
 
       {/* Barra inferior */}
       <SafeAreaView edges={['bottom']} style={styles.toolbarWrap}>
         <View style={styles.toolbar}>
-          <Pressable style={styles.toolButton} onPress={addPhoto}>
-            <Text style={styles.toolButtonText}>＋ Foto</Text>
-          </Pressable>
+          {selectedId ? (
+            <>
+              <Pressable
+                style={[styles.toolButton, styles.btnNeutral]}
+                onPress={() => sendToBack(selectedId)}
+              >
+                <Text style={styles.btnNeutralText}>Al fondo</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.toolButton, styles.btnDanger]}
+                onPress={() => deleteItem(selectedId)}
+              >
+                <Text style={styles.btnDangerText}>Borrar</Text>
+              </Pressable>
+            </>
+          ) : (
+            <Pressable
+              style={[styles.toolButton, styles.btnAccent]}
+              onPress={addPhoto}
+            >
+              <Text style={styles.btnAccentText}>＋ Foto</Text>
+            </Pressable>
+          )}
         </View>
       </SafeAreaView>
     </View>
@@ -118,7 +154,6 @@ const styles = StyleSheet.create({
     padding: 8,
     paddingBottom: 22,
     borderRadius: 4,
-    // sombra cálida (no negra)
     shadowColor: colors.ink,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.22,
@@ -158,14 +193,14 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   toolButton: {
-    backgroundColor: colors.rose,
     paddingHorizontal: 22,
     paddingVertical: 12,
     borderRadius: radius.pill,
   },
-  toolButtonText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  btnAccent: { backgroundColor: colors.rose },
+  btnAccentText: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  btnNeutral: { backgroundColor: colors.paperCream },
+  btnNeutralText: { color: colors.ink, fontSize: 16, fontWeight: '600' },
+  btnDanger: { backgroundColor: colors.roseDeep },
+  btnDangerText: { color: colors.white, fontSize: 16, fontWeight: '700' },
 });
