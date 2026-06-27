@@ -17,7 +17,7 @@ import { WASHI_OPTIONS } from '../data/washi';
 
 type Tab = 'stickers' | 'papeles' | 'washi' | 'marcos' | 'tipografias';
 
-type SelKind = 'photo' | 'text' | 'sticker' | null;
+type SelKind = 'photo' | 'text' | 'sticker' | 'washi' | null;
 
 type Props = {
   visible: boolean;

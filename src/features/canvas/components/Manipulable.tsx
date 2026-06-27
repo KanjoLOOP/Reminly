@@ -126,7 +126,7 @@ export function Manipulable({
         runOnJS(onResizeEnd)({ width: w.value, height: h.value });
       }
     })
-    .blocksExternalGesture(mainGesture);
+    .blocksExternalGesture(pan);
 
   const outerStyle = useAnimatedStyle(() => ({
     transform: [
