@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Manipulable, Size } from '../../features/canvas/components/Manipulable';
 import { PaperBackground } from '../../features/canvas/components/PaperBackground';
 import { TextEditorModal } from '../../features/canvas/components/TextEditorModal';
+import { WashiStrip } from '../../features/canvas/components/WashiStrip';
 import { LibrarySheet } from '../../features/library/components/LibrarySheet';
 import { DEFAULT_FRAME, getFrame } from '../../features/library/data/frames';
 import { DEFAULT_FONT } from '../../core/theme/fonts';
@@ -33,13 +34,22 @@ const PHOTO_H = 280;
 const TEXT_W = 240;
 const TEXT_H = 80;
 const STICKER = 90;
+const WASHI_W = 170;
+const WASHI_H = 34;
+
+function defaultW(kind: CanvasItem['kind']) {
+  return kind === 'photo' ? PHOTO_W : kind === 'text' ? TEXT_W : kind === 'washi' ? WASHI_W : STICKER;
+}
+function defaultH(kind: CanvasItem['kind']) {
+  return kind === 'photo' ? PHOTO_H : kind === 'text' ? TEXT_H : kind === 'washi' ? WASHI_H : STICKER;
+}
 
 function normalize(j: Journal): Journal {
   const items = j.items.map((i) => {
     const base = {
       ...i,
-      width: i.width ?? (i.kind === 'photo' ? PHOTO_W : i.kind === 'text' ? TEXT_W : STICKER),
-      height: i.height ?? (i.kind === 'photo' ? PHOTO_H : i.kind === 'text' ? TEXT_H : STICKER),
+      width: i.width ?? defaultW(i.kind),
+      height: i.height ?? defaultH(i.kind),
     };
     return i.kind === 'photo'
       ? { ...base, frame: (i as any).frame ?? DEFAULT_FRAME.id }
@@ -217,6 +227,25 @@ export default function JournalEditor() {
     setSelectedId(itemId);
   };
 
+  const addWashi = (style: string) => {
+    const itemId = nextId();
+    setItems((prev) => [
+      ...prev,
+      {
+        id: itemId,
+        kind: 'washi',
+        style,
+        x: 60,
+        y: 340,
+        width: WASHI_W,
+        height: WASHI_H,
+        scale: 1,
+        rotation: -0.12,
+      },
+    ]);
+    setSelectedId(itemId);
+  };
+
   const openLibrary = () => {
     setLibTab(
       selectedItem?.kind === 'text'
@@ -311,9 +340,9 @@ export default function JournalEditor() {
               resizeMode={
                 item.kind === 'photo'
                   ? 'both'
-                  : item.kind === 'text'
-                    ? 'horizontal'
-                    : 'none'
+                  : item.kind === 'sticker'
+                    ? 'none'
+                    : 'horizontal'
               }
               selected={selectedId === item.id}
               onActivate={() => activate(item.id)}
@@ -335,8 +364,10 @@ export default function JournalEditor() {
                 <Text style={[styles.handwriting, { fontFamily: item.font }]}>
                   {item.text}
                 </Text>
-              ) : (
+              ) : item.kind === 'sticker' ? (
                 <Text style={styles.sticker}>{item.emoji}</Text>
+              ) : (
+                <WashiStrip style={item.style} height={item.height} />
               )}
             </Manipulable>
           ))}
@@ -427,6 +458,7 @@ export default function JournalEditor() {
         selectedFrame={selectedItem?.kind === 'photo' ? selectedItem.frame : undefined}
         background={background}
         onAddSticker={addSticker}
+        onAddWashi={addWashi}
         onSetFont={setFont}
         onSetFrame={setFrame}
         onSetBackground={setBackground}

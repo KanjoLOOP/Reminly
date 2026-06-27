@@ -41,7 +41,13 @@ export type StickerItem = BaseItem & {
   emoji: string;
 };
 
-export type CanvasItem = PhotoItem | TextItem | StickerItem;
+export type WashiItem = BaseItem & {
+  kind: 'washi';
+  /** Estilo de cinta (ver features/library/data/washi.ts). */
+  style: string;
+};
+
+export type CanvasItem = PhotoItem | TextItem | StickerItem | WashiItem;
 
 /** Patrón del papel del lienzo. */
 export type PaperPattern = 'blank' | 'grid' | 'lines';

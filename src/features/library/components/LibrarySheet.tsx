@@ -13,8 +13,9 @@ import { FONT_OPTIONS } from '../../../core/theme/fonts';
 import type { PaperPattern } from '../../../data/models/journal';
 import { FRAME_OPTIONS } from '../data/frames';
 import { STICKERS } from '../data/stickers';
+import { WASHI_OPTIONS } from '../data/washi';
 
-type Tab = 'stickers' | 'papeles' | 'marcos' | 'tipografias';
+type Tab = 'stickers' | 'papeles' | 'washi' | 'marcos' | 'tipografias';
 
 type SelKind = 'photo' | 'text' | 'sticker' | null;
 
@@ -27,6 +28,7 @@ type Props = {
   selectedFrame?: string;
   background: { color: string; pattern: PaperPattern };
   onAddSticker: (emoji: string) => void;
+  onAddWashi: (id: string) => void;
   onSetFont: (family: string) => void;
   onSetFrame: (id: string) => void;
   onSetBackground: (bg: { color: string; pattern: PaperPattern }) => void;
@@ -35,6 +37,7 @@ type Props = {
 const TABS: { id: Tab; label: string }[] = [
   { id: 'stickers', label: 'Stickers' },
   { id: 'papeles', label: 'Papeles' },
+  { id: 'washi', label: 'Washi' },
   { id: 'marcos', label: 'Marcos' },
   { id: 'tipografias', label: 'Tipografías' },
 ];
@@ -59,6 +62,7 @@ export function LibrarySheet({
   selectedFrame,
   background,
   onAddSticker,
+  onAddWashi,
   onSetFont,
   onSetFrame,
   onSetBackground,
@@ -158,6 +162,50 @@ export function LibrarySheet({
                     );
                   })}
                 </View>
+              </View>
+            )}
+
+            {tab === 'washi' && (
+              <View style={styles.grid}>
+                {WASHI_OPTIONS.map((w) => (
+                  <Pressable
+                    key={w.id}
+                    style={styles.washiCell}
+                    onPress={() => {
+                      onAddWashi(w.id);
+                      onClose();
+                    }}
+                  >
+                    <View style={styles.washiPreview}>
+                      {w.pattern === 'stripes' ? (
+                        <View style={styles.washiRow}>
+                          {Array.from({ length: 8 }).map((_, i) => (
+                            <View
+                              key={i}
+                              style={{
+                                flex: 1,
+                                backgroundColor: i % 2 === 0 ? w.base : w.alt,
+                              }}
+                            />
+                          ))}
+                        </View>
+                      ) : (
+                        <View
+                          style={[styles.washiSolid, { backgroundColor: w.base }]}
+                        >
+                          {w.pattern === 'dots' &&
+                            Array.from({ length: 5 }).map((_, i) => (
+                              <View
+                                key={i}
+                                style={[styles.washiDot, { backgroundColor: w.alt }]}
+                              />
+                            ))}
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.cellLabel}>{w.label}</Text>
+                  </Pressable>
+                ))}
               </View>
             )}
 
@@ -305,6 +353,34 @@ const styles = StyleSheet.create({
   },
   stickerEmoji: {
     fontSize: 30,
+  },
+  washiCell: {
+    width: 100,
+    alignItems: 'center',
+    gap: 6,
+  },
+  washiPreview: {
+    width: 100,
+    height: 28,
+    borderRadius: 3,
+    overflow: 'hidden',
+    transform: [{ rotate: '-3deg' }],
+  },
+  washiRow: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  washiSolid: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    opacity: 0.9,
+  },
+  washiDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
   section: {
     fontSize: 13,
