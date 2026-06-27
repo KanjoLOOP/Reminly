@@ -35,7 +35,13 @@ export type TextItem = BaseItem & {
   font: string;
 };
 
-export type CanvasItem = PhotoItem | TextItem;
+export type StickerItem = BaseItem & {
+  kind: 'sticker';
+  /** Emoji o glifo del sticker. */
+  emoji: string;
+};
+
+export type CanvasItem = PhotoItem | TextItem | StickerItem;
 
 /** Patrón del papel del lienzo. */
 export type PaperPattern = 'blank' | 'grid' | 'lines';

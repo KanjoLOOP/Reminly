@@ -16,8 +16,9 @@ type Props = {
   children: React.ReactNode;
   transform: Transform;
   size: Size;
-  /** 'both' = ancho y alto (fotos); 'horizontal' = solo ancho (texto). */
-  resizeMode?: 'both' | 'horizontal';
+  /** 'both' = ancho y alto (fotos); 'horizontal' = solo ancho (texto);
+   *  'none' = sin tirador, tamaño por contenido (stickers, se escalan con pinza). */
+  resizeMode?: 'both' | 'horizontal' | 'none';
   selected?: boolean;
   onActivate?: () => void;
   onTransformEnd?: (t: Transform) => void;
@@ -136,11 +137,11 @@ export function Manipulable({
     ],
   }));
 
-  const sizeStyle = useAnimatedStyle(() =>
-    resizeMode === 'both'
-      ? { width: w.value, height: h.value }
-      : { width: w.value }
-  );
+  const sizeStyle = useAnimatedStyle(() => {
+    if (resizeMode === 'both') return { width: w.value, height: h.value };
+    if (resizeMode === 'horizontal') return { width: w.value };
+    return {}; // 'none': tamaño por contenido
+  });
 
   return (
     <GestureDetector gesture={mainGesture}>
@@ -151,17 +152,21 @@ export function Manipulable({
           {selected && (
             <>
               <View pointerEvents="none" style={styles.selection} />
-              <GestureDetector gesture={resizeGesture}>
-                <View
-                  style={[
-                    styles.resizeHandle,
-                    resizeMode === 'both' ? styles.handleCorner : styles.handleRight,
-                  ]}
-                  hitSlop={12}
-                >
-                  <View style={styles.resizeDot} />
-                </View>
-              </GestureDetector>
+              {resizeMode !== 'none' && (
+                <GestureDetector gesture={resizeGesture}>
+                  <View
+                    style={[
+                      styles.resizeHandle,
+                      resizeMode === 'both'
+                        ? styles.handleCorner
+                        : styles.handleRight,
+                    ]}
+                    hitSlop={12}
+                  >
+                    <View style={styles.resizeDot} />
+                  </View>
+                </GestureDetector>
+              )}
             </>
           )}
         </Animated.View>

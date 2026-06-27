@@ -5,12 +5,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BackgroundModal } from '../../features/canvas/components/BackgroundModal';
 import { Manipulable, Size } from '../../features/canvas/components/Manipulable';
 import { PaperBackground } from '../../features/canvas/components/PaperBackground';
 import { TextEditorModal } from '../../features/canvas/components/TextEditorModal';
-import { FontPicker } from '../../features/library/components/FontPicker';
-import { FramePicker } from '../../features/library/components/FramePicker';
+import { LibrarySheet } from '../../features/library/components/LibrarySheet';
 import { DEFAULT_FRAME, getFrame } from '../../features/library/data/frames';
 import { DEFAULT_FONT } from '../../core/theme/fonts';
 import { colors, radius } from '../../core/theme/tokens';
@@ -34,14 +32,14 @@ const PHOTO_W = 220;
 const PHOTO_H = 280;
 const TEXT_W = 240;
 const TEXT_H = 80;
+const STICKER = 90;
 
-// Rellena valores que journals antiguos pueden no tener.
 function normalize(j: Journal): Journal {
   const items = j.items.map((i) => {
     const base = {
       ...i,
-      width: i.width ?? (i.kind === 'photo' ? PHOTO_W : TEXT_W),
-      height: i.height ?? (i.kind === 'photo' ? PHOTO_H : TEXT_H),
+      width: i.width ?? (i.kind === 'photo' ? PHOTO_W : i.kind === 'text' ? TEXT_W : STICKER),
+      height: i.height ?? (i.kind === 'photo' ? PHOTO_H : i.kind === 'text' ? TEXT_H : STICKER),
     };
     return i.kind === 'photo'
       ? { ...base, frame: (i as any).frame ?? DEFAULT_FRAME.id }
@@ -49,6 +47,8 @@ function normalize(j: Journal): Journal {
   }) as CanvasItem[];
   return { ...j, background: j.background ?? DEFAULT_BACKGROUND, items };
 }
+
+type LibTab = 'stickers' | 'papeles' | 'marcos' | 'tipografias';
 
 export default function JournalEditor() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -64,7 +64,9 @@ export default function JournalEditor() {
   const [draft, setDraft] = useState('');
   const [renaming, setRenaming] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
-  const [bgOpen, setBgOpen] = useState(false);
+
+  const [libOpen, setLibOpen] = useState(false);
+  const [libTab, setLibTab] = useState<LibTab>('stickers');
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -196,6 +198,36 @@ export default function JournalEditor() {
     setEditingId(itemId);
   };
 
+  const addSticker = (emoji: string) => {
+    const itemId = nextId();
+    setItems((prev) => [
+      ...prev,
+      {
+        id: itemId,
+        kind: 'sticker',
+        emoji,
+        x: 140,
+        y: 300,
+        width: STICKER,
+        height: STICKER,
+        scale: 1,
+        rotation: 0,
+      },
+    ]);
+    setSelectedId(itemId);
+  };
+
+  const openLibrary = () => {
+    setLibTab(
+      selectedItem?.kind === 'text'
+        ? 'tipografias'
+        : selectedItem?.kind === 'photo'
+          ? 'marcos'
+          : 'stickers'
+    );
+    setLibOpen(true);
+  };
+
   const openEditor = (itemId: string) => {
     const item = items.find((i) => i.id === itemId);
     if (item?.kind === 'text') {
@@ -243,7 +275,6 @@ export default function JournalEditor() {
     <View style={[styles.screen, { backgroundColor: background.color }]}>
       <StatusBar style="dark" />
 
-      {/* Cabecera */}
       <SafeAreaView edges={['top']} style={{ backgroundColor: background.color }}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
@@ -277,7 +308,13 @@ export default function JournalEditor() {
                 rotation: item.rotation,
               }}
               size={{ width: item.width, height: item.height }}
-              resizeMode={item.kind === 'photo' ? 'both' : 'horizontal'}
+              resizeMode={
+                item.kind === 'photo'
+                  ? 'both'
+                  : item.kind === 'text'
+                    ? 'horizontal'
+                    : 'none'
+              }
               selected={selectedId === item.id}
               onActivate={() => activate(item.id)}
               onTransformEnd={(t) => updateTransform(item.id, t)}
@@ -294,10 +331,12 @@ export default function JournalEditor() {
                     resizeMode="cover"
                   />
                 </View>
-              ) : (
+              ) : item.kind === 'text' ? (
                 <Text style={[styles.handwriting, { fontFamily: item.font }]}>
                   {item.text}
                 </Text>
+              ) : (
+                <Text style={styles.sticker}>{item.emoji}</Text>
               )}
             </Manipulable>
           ))}
@@ -306,17 +345,6 @@ export default function JournalEditor() {
 
       {/* Barra inferior */}
       <SafeAreaView edges={['bottom']} style={styles.toolbarWrap}>
-        {selectedItem?.kind === 'text' && (
-          <View style={styles.strip}>
-            <FontPicker value={selectedItem.font} onSelect={setFont} />
-          </View>
-        )}
-        {selectedItem?.kind === 'photo' && (
-          <View style={styles.strip}>
-            <FramePicker value={selectedItem.frame} onSelect={setFrame} />
-          </View>
-        )}
-
         <View style={styles.toolbar}>
           {selectedItem ? (
             <>
@@ -326,6 +354,14 @@ export default function JournalEditor() {
                   onPress={() => openEditor(selectedItem.id)}
                 >
                   <Text style={styles.btnNeutralText}>Editar</Text>
+                </Pressable>
+              )}
+              {selectedItem.kind !== 'sticker' && (
+                <Pressable
+                  style={[styles.toolButton, styles.btnNeutral]}
+                  onPress={openLibrary}
+                >
+                  <Text style={styles.btnNeutralText}>Estilo</Text>
                 </Pressable>
               )}
               <Pressable
@@ -357,9 +393,9 @@ export default function JournalEditor() {
               </Pressable>
               <Pressable
                 style={[styles.toolButton, styles.btnNeutral]}
-                onPress={() => setBgOpen(true)}
+                onPress={openLibrary}
               >
-                <Text style={styles.btnNeutralText}>Fondo</Text>
+                <Text style={styles.btnNeutralText}>Biblioteca</Text>
               </Pressable>
             </>
           )}
@@ -382,21 +418,25 @@ export default function JournalEditor() {
         title="Título del journal"
         placeholder="Verano '26…"
       />
-      <BackgroundModal
-        visible={bgOpen}
-        color={background.color}
-        pattern={background.pattern}
-        onChange={setBackground}
-        onClose={() => setBgOpen(false)}
+      <LibrarySheet
+        visible={libOpen}
+        onClose={() => setLibOpen(false)}
+        initialTab={libTab}
+        selectedKind={selectedItem?.kind ?? null}
+        selectedFont={selectedItem?.kind === 'text' ? selectedItem.font : undefined}
+        selectedFrame={selectedItem?.kind === 'photo' ? selectedItem.frame : undefined}
+        background={background}
+        onAddSticker={addSticker}
+        onSetFont={setFont}
+        onSetFrame={setFrame}
+        onSetBackground={setBackground}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
+  screen: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -410,21 +450,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backIcon: {
-    fontSize: 34,
-    lineHeight: 34,
-    color: colors.ink,
-  },
+  backIcon: { fontSize: 34, lineHeight: 34, color: colors.ink },
   titleWrap: { flex: 1 },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.ink,
-  },
-  canvas: {
-    flex: 1,
-    overflow: 'hidden',
-  },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: colors.ink },
+  canvas: { flex: 1, overflow: 'hidden' },
   frame: {
     width: '100%',
     height: '100%',
@@ -434,14 +463,9 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-  photo: {
-    flex: 1,
-    backgroundColor: colors.kraftLight,
-  },
-  handwriting: {
-    fontSize: 40,
-    color: colors.ink,
-  },
+  photo: { flex: 1, backgroundColor: colors.kraftLight },
+  handwriting: { fontSize: 40, color: colors.ink },
+  sticker: { fontSize: 64 },
   toolbarWrap: {
     position: 'absolute',
     left: 0,
@@ -449,18 +473,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
   },
-  strip: {
-    width: '100%',
-    paddingBottom: 10,
-  },
   toolbar: {
     flexDirection: 'row',
     backgroundColor: colors.paperLight,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 9,
     borderRadius: radius.pill,
     marginBottom: 12,
-    gap: 8,
+    gap: 6,
     shadowColor: colors.ink,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.2,
@@ -468,14 +488,14 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   toolButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
     borderRadius: radius.pill,
   },
   btnAccent: { backgroundColor: colors.rose },
-  btnAccentText: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  btnAccentText: { color: colors.white, fontSize: 15, fontWeight: '700' },
   btnNeutral: { backgroundColor: colors.paperCream },
-  btnNeutralText: { color: colors.ink, fontSize: 16, fontWeight: '600' },
+  btnNeutralText: { color: colors.ink, fontSize: 15, fontWeight: '600' },
   btnDanger: { backgroundColor: colors.roseDeep },
-  btnDangerText: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  btnDangerText: { color: colors.white, fontSize: 15, fontWeight: '700' },
 });
