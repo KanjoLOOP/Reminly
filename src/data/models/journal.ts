@@ -78,5 +78,6 @@ export type JournalSummary = {
   title: string;
   updatedAt: string;
   coverUri?: string;
+  bgColor: string;
   count: number;
 };

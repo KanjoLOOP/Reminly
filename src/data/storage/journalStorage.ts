@@ -55,6 +55,7 @@ export function listJournals(): JournalSummary[] {
           title: j.title,
           updatedAt: j.updatedAt,
           coverUri: cover && cover.kind === 'photo' ? cover.uri : undefined,
+          bgColor: j.background?.color ?? '#FBF7F0',
           count: j.items.length,
         });
       } catch {

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, radius } from '../core/theme/tokens';
+import { colors, radius, typography } from '../core/theme/tokens';
 import type { JournalSummary } from '../data/models/journal';
 import {
   createJournal,
@@ -20,11 +20,13 @@ import {
   listJournals,
 } from '../data/storage/journalStorage';
 
+// Pequeña inclinación alterna para dar aire de "colocado a mano".
+const tilt = (i: number) => (i % 2 === 0 ? -1.5 : 1.5);
+
 export default function Home() {
   const router = useRouter();
   const [journals, setJournals] = useState<JournalSummary[]>([]);
 
-  // Recargar la lista cada vez que la pantalla recupera el foco.
   useFocusEffect(
     useCallback(() => {
       setJournals(listJournals());
@@ -38,7 +40,7 @@ export default function Home() {
 
   const confirmDelete = (item: JournalSummary) => {
     Alert.alert(
-      'Borrar journal',
+      'Borrar libreta',
       `¿Borrar "${item.title}"? No se puede deshacer.`,
       [
         { text: 'Cancelar', style: 'cancel' },
@@ -68,31 +70,36 @@ export default function Home() {
       </View>
 
       <ScrollView contentContainerStyle={styles.grid}>
-        {/* Tarjeta de crear */}
-        <Pressable style={[styles.card, styles.newCard]} onPress={createNew}>
+        <Pressable style={styles.newCard} onPress={createNew}>
           <Text style={styles.plus}>＋</Text>
           <Text style={styles.newText}>Nueva libreta</Text>
         </Pressable>
 
-        {journals.map((j) => (
+        {journals.map((j, i) => (
           <Pressable
             key={j.id}
-            style={styles.card}
+            style={[styles.slot, { transform: [{ rotate: `${tilt(i)}deg` }] }]}
             onPress={() => router.push(`/journal/${j.id}`)}
             onLongPress={() => confirmDelete(j)}
           >
-            <View style={styles.cover}>
+            {/* Portada de libreta */}
+            <View style={[styles.book, { backgroundColor: j.bgColor }]}>
+              <View style={styles.spine} />
+
               {j.coverUri ? (
-                <Image source={{ uri: j.coverUri }} style={styles.coverImg} />
-              ) : (
-                <View style={styles.coverEmpty}>
-                  <Text style={styles.coverEmptyText}>✎</Text>
+                <View style={styles.tapedPhoto}>
+                  <View style={styles.washiTape} />
+                  <Image source={{ uri: j.coverUri }} style={styles.coverImg} />
                 </View>
+              ) : (
+                <Text style={styles.coverDoodle}>✎</Text>
               )}
+
+              <Text style={styles.bookTitle} numberOfLines={2}>
+                {j.title}
+              </Text>
             </View>
-            <Text style={styles.cardTitle} numberOfLines={1}>
-              {j.title}
-            </Text>
+
             <Text style={styles.cardMeta}>
               {j.count} {j.count === 1 ? 'elemento' : 'elementos'}
             </Text>
@@ -114,9 +121,9 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 30,
     color: colors.ink,
+    fontFamily: typography.handwritingBold,
   },
   subtitle: {
     fontSize: 14,
@@ -126,54 +133,93 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 12,
-    paddingBottom: 24,
-    gap: 12,
+    paddingHorizontal: 14,
+    paddingBottom: 32,
+    gap: 18,
+    justifyContent: 'space-between',
   },
-  card: {
-    width: '47%',
-    backgroundColor: colors.paperLight,
-    borderRadius: radius.lg,
-    padding: 10,
+  slot: {
+    width: '46%',
+    alignItems: 'center',
+  },
+  book: {
+    width: '100%',
+    height: 200,
+    borderRadius: 10,
+    borderTopRightRadius: 14,
+    borderBottomRightRadius: 14,
+    paddingTop: 18,
+    paddingHorizontal: 16,
+    alignItems: 'center',
     shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.14,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
     shadowRadius: 10,
+    elevation: 6,
+  },
+  spine: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 12,
+    borderTopLeftRadius: 10,
+    borderBottomLeftRadius: 10,
+    backgroundColor: 'rgba(59,58,54,0.16)',
+  },
+  tapedPhoto: {
+    marginTop: 6,
+    padding: 6,
+    paddingBottom: 12,
+    backgroundColor: colors.white,
+    borderRadius: 3,
+    transform: [{ rotate: '-3deg' }],
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
     elevation: 4,
   },
-  cover: {
-    height: 150,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-    backgroundColor: colors.kraftLight,
+  washiTape: {
+    position: 'absolute',
+    top: -7,
+    alignSelf: 'center',
+    width: 46,
+    height: 16,
+    backgroundColor: 'rgba(232,165,152,0.85)',
+    transform: [{ rotate: '4deg' }],
+    borderRadius: 2,
+    zIndex: 2,
   },
   coverImg: {
-    width: '100%',
-    height: '100%',
+    width: 92,
+    height: 92,
+    borderRadius: 2,
+    backgroundColor: colors.kraftLight,
   },
-  coverEmpty: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.kraft,
+  coverDoodle: {
+    fontSize: 56,
+    color: 'rgba(59,58,54,0.18)',
+    marginTop: 28,
   },
-  coverEmptyText: {
-    fontSize: 40,
-    color: colors.paperLight,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+  bookTitle: {
+    marginTop: 'auto',
+    marginBottom: 14,
+    fontSize: 26,
+    lineHeight: 28,
+    textAlign: 'center',
     color: colors.ink,
-    marginTop: 8,
+    fontFamily: typography.handwritingBold,
   },
   cardMeta: {
     fontSize: 12,
     color: colors.inkMuted,
-    marginTop: 1,
+    marginTop: 8,
   },
   newCard: {
-    height: 222,
+    width: '46%',
+    height: 200,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.paperLight,

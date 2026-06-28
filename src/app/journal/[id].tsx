@@ -21,6 +21,7 @@ import {
   Transform,
 } from '../../data/models/journal';
 import {
+  deleteJournal,
   loadJournal,
   persistImage,
   saveJournal,
@@ -289,6 +290,15 @@ export default function JournalEditor() {
     setEditingId(null);
   };
 
+  // Al salir, si la libreta quedó vacía (creada y sin usar), se descarta.
+  const goBack = () => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    if (id && items.length === 0) {
+      deleteJournal(id);
+    }
+    router.back();
+  };
+
   const openRename = () => {
     setTitleDraft(journal?.title ?? '');
     setRenaming(true);
@@ -306,7 +316,7 @@ export default function JournalEditor() {
 
       <SafeAreaView edges={['top']} style={{ backgroundColor: background.color }}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
+          <Pressable onPress={goBack} style={styles.backBtn} hitSlop={10}>
             <Text style={styles.backIcon}>‹</Text>
           </Pressable>
           <Pressable style={styles.titleWrap} onPress={openRename} hitSlop={8}>
