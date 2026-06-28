@@ -1,10 +1,12 @@
+import { useEffect, useState } from 'react';
 import {
-  BottomSheetBackdrop,
-  BottomSheetModal,
-  BottomSheetScrollView,
-} from '@gorhom/bottom-sheet';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { colors, radius } from '../../../core/theme/tokens';
 import { FONT_OPTIONS } from '../../../core/theme/fonts';
@@ -75,40 +77,17 @@ export function LibrarySheet({
   onSetBackground,
 }: Props) {
   const [tab, setTab] = useState<Tab>('stickers');
-  const ref = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['82%'], []);
 
   useEffect(() => {
-    if (visible) {
-      if (initialTab) setTab(initialTab);
-      ref.current?.present();
-    } else {
-      ref.current?.dismiss();
-    }
+    if (visible && initialTab) setTab(initialTab);
   }, [visible, initialTab]);
 
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        appearsOnIndex={0}
-        disappearsOnIndex={-1}
-        opacity={0.45}
-      />
-    ),
-    []
-  );
-
   return (
-    <BottomSheetModal
-      ref={ref}
-      snapPoints={snapPoints}
-      onDismiss={onClose}
-      backdropComponent={renderBackdrop}
-      handleIndicatorStyle={styles.grabberIndicator}
-      backgroundStyle={styles.sheetBg}
-    >
-      <Text style={styles.title}>Biblioteca</Text>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <Pressable style={styles.sheet} onPress={() => {}}>
+          <View style={styles.grabber} />
+          <Text style={styles.title}>Biblioteca</Text>
 
           {/* Pestañas */}
           <ScrollView
@@ -132,7 +111,7 @@ export function LibrarySheet({
             })}
           </ScrollView>
 
-          <BottomSheetScrollView contentContainerStyle={styles.bodyContent}>
+          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
             {tab === 'stickers' && (
               <View style={styles.grid}>
                 {STICKERS.map((s, i) => (
@@ -328,8 +307,10 @@ export function LibrarySheet({
                 )}
               </View>
             )}
-          </BottomSheetScrollView>
-    </BottomSheetModal>
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -391,9 +372,11 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: colors.white,
   },
-  bodyContent: {
+  body: {
     paddingHorizontal: 16,
-    paddingBottom: 24,
+  },
+  bodyContent: {
+    paddingBottom: 12,
   },
   grid: {
     flexDirection: 'row',
