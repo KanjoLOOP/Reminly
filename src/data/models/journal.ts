@@ -33,6 +33,8 @@ export type TextItem = BaseItem & {
   text: string;
   /** Familia de fuente registrada (ver core/theme/fonts.ts). */
   font: string;
+  /** Color del texto. */
+  color: string;
 };
 
 export type StickerItem = BaseItem & {

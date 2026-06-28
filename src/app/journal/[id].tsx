@@ -53,9 +53,11 @@ function normalize(j: Journal): Journal {
       width: i.width ?? defaultW(i.kind),
       height: i.height ?? defaultH(i.kind),
     };
-    return i.kind === 'photo'
-      ? { ...base, frame: (i as any).frame ?? DEFAULT_FRAME.id }
-      : base;
+    if (i.kind === 'photo')
+      return { ...base, frame: (i as any).frame ?? DEFAULT_FRAME.id };
+    if (i.kind === 'text')
+      return { ...base, color: (i as any).color ?? '#3B3A36' };
+    return base;
   }) as CanvasItem[];
   return {
     ...j,
@@ -157,6 +159,14 @@ export default function JournalEditor() {
     );
   };
 
+  const setTextColor = (color: string) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === selectedId && i.kind === 'text' ? { ...i, color } : i
+      )
+    );
+  };
+
   const setFrame = (frame: string) => {
     setItems((prev) =>
       prev.map((i) =>
@@ -202,6 +212,7 @@ export default function JournalEditor() {
         kind: 'text',
         text: '',
         font: DEFAULT_FONT.family,
+        color: '#3B3A36',
         x: 80,
         y: 200,
         width: TEXT_W,
@@ -236,8 +247,8 @@ export default function JournalEditor() {
 
   const addWashi = (style: string) => {
     const itemId = nextId();
+    // Se inserta al fondo (índice 0) → queda detrás como capa decorativa.
     setItems((prev) => [
-      ...prev,
       {
         id: itemId,
         kind: 'washi',
@@ -249,6 +260,7 @@ export default function JournalEditor() {
         scale: 1,
         rotation: -0.12,
       },
+      ...prev,
     ]);
     setSelectedId(itemId);
   };
@@ -361,7 +373,9 @@ export default function JournalEditor() {
                     : 'horizontal'
               }
               selected={selectedId === item.id}
-              onActivate={() => activate(item.id)}
+              onActivate={() =>
+                item.kind === 'washi' ? setSelectedId(item.id) : activate(item.id)
+              }
               onTransformEnd={(t) => updateTransform(item.id, t)}
               onResizeEnd={(s) => updateSize(item.id, s)}
             >
@@ -377,7 +391,12 @@ export default function JournalEditor() {
                   />
                 </View>
               ) : item.kind === 'text' ? (
-                <Text style={[styles.handwriting, { fontFamily: item.font }]}>
+                <Text
+                  style={[
+                    styles.handwriting,
+                    { fontFamily: item.font, color: item.color },
+                  ]}
+                >
                   {item.text}
                 </Text>
               ) : item.kind === 'sticker' ? (
@@ -403,7 +422,7 @@ export default function JournalEditor() {
                   <Text style={styles.btnNeutralText}>Editar</Text>
                 </Pressable>
               )}
-              {selectedItem.kind !== 'sticker' && (
+              {(selectedItem.kind === 'text' || selectedItem.kind === 'photo') && (
                 <Pressable
                   style={[styles.toolButton, styles.btnNeutral]}
                   onPress={openLibrary}
@@ -472,10 +491,14 @@ export default function JournalEditor() {
         selectedKind={selectedItem?.kind ?? null}
         selectedFont={selectedItem?.kind === 'text' ? selectedItem.font : undefined}
         selectedFrame={selectedItem?.kind === 'photo' ? selectedItem.frame : undefined}
+        selectedTextColor={
+          selectedItem?.kind === 'text' ? selectedItem.color : undefined
+        }
         background={background}
         onAddSticker={addSticker}
         onAddWashi={addWashi}
         onSetFont={setFont}
+        onSetTextColor={setTextColor}
         onSetFrame={setFrame}
         onSetBackground={setBackground}
       />

@@ -27,12 +27,19 @@ type Props = {
   selectedFont?: string;
   selectedFrame?: string;
   background: { color: string; pattern: PaperPattern };
+  selectedTextColor?: string;
   onAddSticker: (emoji: string) => void;
   onAddWashi: (id: string) => void;
   onSetFont: (family: string) => void;
+  onSetTextColor: (color: string) => void;
   onSetFrame: (id: string) => void;
   onSetBackground: (bg: { color: string; pattern: PaperPattern }) => void;
 };
+
+const TEXT_COLORS = [
+  '#3B3A36', '#9A8F7D', '#E8A598', '#D98A73', '#A7B9A0',
+  '#6E7F74', '#9FC0D4', '#C9B3D8', '#E9C46A', '#FFFFFF',
+];
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'stickers', label: 'Stickers' },
@@ -60,10 +67,12 @@ export function LibrarySheet({
   selectedKind,
   selectedFont,
   selectedFrame,
+  selectedTextColor,
   background,
   onAddSticker,
   onAddWashi,
   onSetFont,
+  onSetTextColor,
   onSetFrame,
   onSetBackground,
 }: Props) {
@@ -273,6 +282,29 @@ export function LibrarySheet({
                     );
                   })}
                 </View>
+
+                {selectedKind === 'text' && (
+                  <>
+                    <Text style={styles.section}>Color del texto</Text>
+                    <View style={styles.swatches}>
+                      {TEXT_COLORS.map((c) => {
+                        const active =
+                          c.toLowerCase() === (selectedTextColor ?? '').toLowerCase();
+                        return (
+                          <Pressable
+                            key={c}
+                            onPress={() => onSetTextColor(c)}
+                            style={[
+                              styles.swatch,
+                              { backgroundColor: c },
+                              active && styles.swatchActive,
+                            ]}
+                          />
+                        );
+                      })}
+                    </View>
+                  </>
+                )}
               </View>
             )}
           </ScrollView>
