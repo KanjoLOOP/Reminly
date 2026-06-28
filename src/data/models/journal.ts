@@ -62,12 +62,26 @@ export const DEFAULT_BACKGROUND: PaperBackground = {
   pattern: 'blank',
 };
 
+/** Estilo de tapa de la libreta en la estantería. */
+export type CoverStyle = 'notebook' | 'spiral' | 'book';
+
+export type Cover = {
+  color: string;
+  style: CoverStyle;
+};
+
+export const DEFAULT_COVER: Cover = {
+  color: '#C9A77C',
+  style: 'notebook',
+};
+
 export type Journal = {
   schemaVersion: number;
   id: string;
   title: string;
   createdAt: string;
   updatedAt: string;
+  cover: Cover;
   background: PaperBackground;
   items: CanvasItem[];
 };
@@ -78,6 +92,7 @@ export type JournalSummary = {
   title: string;
   updatedAt: string;
   coverUri?: string;
-  bgColor: string;
+  coverColor: string;
+  coverStyle: CoverStyle;
   count: number;
 };

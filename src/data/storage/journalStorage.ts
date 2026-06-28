@@ -11,7 +11,9 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 import {
   CanvasItem,
+  Cover,
   DEFAULT_BACKGROUND,
+  DEFAULT_COVER,
   Journal,
   JournalSummary,
   SCHEMA_VERSION,
@@ -55,7 +57,8 @@ export function listJournals(): JournalSummary[] {
           title: j.title,
           updatedAt: j.updatedAt,
           coverUri: cover && cover.kind === 'photo' ? cover.uri : undefined,
-          bgColor: j.background?.color ?? '#FBF7F0',
+          coverColor: j.cover?.color ?? DEFAULT_COVER.color,
+          coverStyle: j.cover?.style ?? DEFAULT_COVER.style,
           count: j.items.length,
         });
       } catch {
@@ -70,7 +73,7 @@ export function listJournals(): JournalSummary[] {
 }
 
 /** Crea un journal vacío y devuelve su modelo. */
-export function createJournal(title: string): Journal {
+export function createJournal(title: string, cover: Cover = DEFAULT_COVER): Journal {
   const id = newId('j');
   const now = new Date().toISOString();
   const dir = journalDir(id);
@@ -84,11 +87,19 @@ export function createJournal(title: string): Journal {
     title,
     createdAt: now,
     updatedAt: now,
+    cover: { ...cover },
     background: { ...DEFAULT_BACKGROUND },
     items: [],
   };
   journalFile(id).write(JSON.stringify(journal));
   return journal;
+}
+
+/** Cambia solo la portada de un journal (color y/o estilo). */
+export function setJournalCover(id: string, cover: Cover): void {
+  const j = loadJournal(id);
+  if (!j) return;
+  saveJournal({ ...j, cover });
 }
 
 export function loadJournal(id: string): Journal | null {

@@ -16,6 +16,7 @@ import { colors, radius } from '../../core/theme/tokens';
 import {
   CanvasItem,
   DEFAULT_BACKGROUND,
+  DEFAULT_COVER,
   Journal,
   PaperBackground as Bg,
   Transform,
@@ -56,7 +57,12 @@ function normalize(j: Journal): Journal {
       ? { ...base, frame: (i as any).frame ?? DEFAULT_FRAME.id }
       : base;
   }) as CanvasItem[];
-  return { ...j, background: j.background ?? DEFAULT_BACKGROUND, items };
+  return {
+    ...j,
+    cover: j.cover ?? DEFAULT_COVER,
+    background: j.background ?? DEFAULT_BACKGROUND,
+    items,
+  };
 }
 
 type LibTab = 'stickers' | 'papeles' | 'marcos' | 'tipografias';

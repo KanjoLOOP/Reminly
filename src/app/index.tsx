@@ -1,59 +1,58 @@
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import {
-  Alert,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, radius, typography } from '../core/theme/tokens';
-import type { JournalSummary } from '../data/models/journal';
+import { CoverEditor } from '../features/journal/components/CoverEditor';
+import { NotebookCover } from '../features/journal/components/NotebookCover';
+import { colors, typography } from '../core/theme/tokens';
+import {
+  CoverStyle,
+  DEFAULT_COVER,
+  JournalSummary,
+} from '../data/models/journal';
 import {
   createJournal,
   deleteJournal,
   listJournals,
+  setJournalCover,
 } from '../data/storage/journalStorage';
 
-// Pequeña inclinación alterna para dar aire de "colocado a mano".
 const tilt = (i: number) => (i % 2 === 0 ? -1.5 : 1.5);
+
+type EditorState =
+  | { mode: 'create' }
+  | { mode: 'edit'; target: JournalSummary }
+  | null;
 
 export default function Home() {
   const router = useRouter();
   const [journals, setJournals] = useState<JournalSummary[]>([]);
+  const [editor, setEditor] = useState<EditorState>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      setJournals(listJournals());
-    }, [])
-  );
+  const refresh = () => setJournals(listJournals());
 
-  const createNew = () => {
-    const j = createJournal('Nuevo recuerdo');
-    router.push(`/journal/${j.id}`);
+  useFocusEffect(useCallback(() => refresh(), []));
+
+  const confirmCover = (color: string, style: CoverStyle) => {
+    if (editor?.mode === 'create') {
+      const j = createJournal('Nuevo recuerdo', { color, style });
+      setEditor(null);
+      router.push(`/journal/${j.id}`);
+    } else if (editor?.mode === 'edit') {
+      setJournalCover(editor.target.id, { color, style });
+      setEditor(null);
+      refresh();
+    }
   };
 
-  const confirmDelete = (item: JournalSummary) => {
-    Alert.alert(
-      'Borrar libreta',
-      `¿Borrar "${item.title}"? No se puede deshacer.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Borrar',
-          style: 'destructive',
-          onPress: () => {
-            deleteJournal(item.id);
-            setJournals(listJournals());
-          },
-        },
-      ]
-    );
+  const removeJournal = () => {
+    if (editor?.mode === 'edit') {
+      deleteJournal(editor.target.id);
+      setEditor(null);
+      refresh();
+    }
   };
 
   return (
@@ -70,7 +69,7 @@ export default function Home() {
       </View>
 
       <ScrollView contentContainerStyle={styles.grid}>
-        <Pressable style={styles.newCard} onPress={createNew}>
+        <Pressable style={styles.newCard} onPress={() => setEditor({ mode: 'create' })}>
           <Text style={styles.plus}>＋</Text>
           <Text style={styles.newText}>Nueva libreta</Text>
         </Pressable>
@@ -80,32 +79,36 @@ export default function Home() {
             key={j.id}
             style={[styles.slot, { transform: [{ rotate: `${tilt(i)}deg` }] }]}
             onPress={() => router.push(`/journal/${j.id}`)}
-            onLongPress={() => confirmDelete(j)}
+            onLongPress={() => setEditor({ mode: 'edit', target: j })}
           >
-            {/* Portada de libreta */}
-            <View style={[styles.book, { backgroundColor: j.bgColor }]}>
-              <View style={styles.spine} />
-
-              {j.coverUri ? (
-                <View style={styles.tapedPhoto}>
-                  <View style={styles.washiTape} />
-                  <Image source={{ uri: j.coverUri }} style={styles.coverImg} />
-                </View>
-              ) : (
-                <Text style={styles.coverDoodle}>✎</Text>
-              )}
-
-              <Text style={styles.bookTitle} numberOfLines={2}>
-                {j.title}
-              </Text>
-            </View>
-
+            <NotebookCover
+              color={j.coverColor}
+              style={j.coverStyle}
+              title={j.title}
+              coverUri={j.coverUri}
+            />
             <Text style={styles.cardMeta}>
               {j.count} {j.count === 1 ? 'elemento' : 'elementos'}
             </Text>
           </Pressable>
         ))}
       </ScrollView>
+
+      <CoverEditor
+        visible={editor !== null}
+        mode={editor?.mode ?? 'create'}
+        title={editor?.mode === 'edit' ? editor.target.title : 'Nuevo recuerdo'}
+        coverUri={editor?.mode === 'edit' ? editor.target.coverUri : undefined}
+        initialColor={
+          editor?.mode === 'edit' ? editor.target.coverColor : DEFAULT_COVER.color
+        }
+        initialStyle={
+          editor?.mode === 'edit' ? editor.target.coverStyle : DEFAULT_COVER.style
+        }
+        onConfirm={confirmCover}
+        onClose={() => setEditor(null)}
+        onDelete={removeJournal}
+      />
     </SafeAreaView>
   );
 }
@@ -135,81 +138,12 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     paddingHorizontal: 14,
     paddingBottom: 32,
-    gap: 18,
+    rowGap: 18,
     justifyContent: 'space-between',
   },
   slot: {
     width: '46%',
     alignItems: 'center',
-  },
-  book: {
-    width: '100%',
-    height: 200,
-    borderRadius: 10,
-    borderTopRightRadius: 14,
-    borderBottomRightRadius: 14,
-    paddingTop: 18,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  spine: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 12,
-    borderTopLeftRadius: 10,
-    borderBottomLeftRadius: 10,
-    backgroundColor: 'rgba(59,58,54,0.16)',
-  },
-  tapedPhoto: {
-    marginTop: 6,
-    padding: 6,
-    paddingBottom: 12,
-    backgroundColor: colors.white,
-    borderRadius: 3,
-    transform: [{ rotate: '-3deg' }],
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 4,
-  },
-  washiTape: {
-    position: 'absolute',
-    top: -7,
-    alignSelf: 'center',
-    width: 46,
-    height: 16,
-    backgroundColor: 'rgba(232,165,152,0.85)',
-    transform: [{ rotate: '4deg' }],
-    borderRadius: 2,
-    zIndex: 2,
-  },
-  coverImg: {
-    width: 92,
-    height: 92,
-    borderRadius: 2,
-    backgroundColor: colors.kraftLight,
-  },
-  coverDoodle: {
-    fontSize: 56,
-    color: 'rgba(59,58,54,0.18)',
-    marginTop: 28,
-  },
-  bookTitle: {
-    marginTop: 'auto',
-    marginBottom: 14,
-    fontSize: 26,
-    lineHeight: 28,
-    textAlign: 'center',
-    color: colors.ink,
-    fontFamily: typography.handwritingBold,
   },
   cardMeta: {
     fontSize: 12,
