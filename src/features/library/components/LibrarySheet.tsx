@@ -27,14 +27,18 @@ type Props = {
   selectedKind: SelKind;
   selectedFont?: string;
   selectedFrame?: string;
-  background: { color: string; pattern: PaperPattern };
+  background: { color: string; pattern: PaperPattern; lineColor: string };
   selectedTextColor?: string;
   onAddSticker: (emoji: string) => void;
   onAddWashi: (id: string) => void;
   onSetFont: (family: string) => void;
   onSetTextColor: (color: string) => void;
   onSetFrame: (id: string) => void;
-  onSetBackground: (bg: { color: string; pattern: PaperPattern }) => void;
+  onSetBackground: (bg: {
+    color: string;
+    pattern: PaperPattern;
+    lineColor: string;
+  }) => void;
 };
 
 const TEXT_COLORS = PALETTE;
@@ -133,9 +137,7 @@ export function LibrarySheet({
                     return (
                       <Pressable
                         key={c}
-                        onPress={() =>
-                          onSetBackground({ color: c, pattern: background.pattern })
-                        }
+                        onPress={() => onSetBackground({ ...background, color: c })}
                         style={[
                           styles.swatch,
                           { backgroundColor: c },
@@ -152,9 +154,7 @@ export function LibrarySheet({
                     return (
                       <Pressable
                         key={p.id}
-                        onPress={() =>
-                          onSetBackground({ color: background.color, pattern: p.id })
-                        }
+                        onPress={() => onSetBackground({ ...background, pattern: p.id })}
                         style={[styles.patternBtn, active && styles.patternActive]}
                       >
                         <Text
@@ -166,6 +166,32 @@ export function LibrarySheet({
                     );
                   })}
                 </View>
+
+                {background.pattern !== 'blank' && (
+                  <>
+                    <Text style={styles.section}>Color de líneas</Text>
+                    <View style={styles.swatches}>
+                      {PALETTE.map((c) => {
+                        const active =
+                          c.toLowerCase() ===
+                          (background.lineColor ?? '').toLowerCase();
+                        return (
+                          <Pressable
+                            key={c}
+                            onPress={() =>
+                              onSetBackground({ ...background, lineColor: c })
+                            }
+                            style={[
+                              styles.swatch,
+                              { backgroundColor: c },
+                              active && styles.swatchActive,
+                            ]}
+                          />
+                        );
+                      })}
+                    </View>
+                  </>
+                )}
               </View>
             )}
 

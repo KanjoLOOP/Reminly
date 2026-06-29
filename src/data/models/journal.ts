@@ -77,11 +77,14 @@ export type PaperPattern = 'blank' | 'grid' | 'lines';
 export type PaperBackground = {
   color: string;
   pattern: PaperPattern;
+  /** Color de la cuadrícula/líneas. */
+  lineColor: string;
 };
 
 export const DEFAULT_BACKGROUND: PaperBackground = {
   color: '#FBF7F0',
   pattern: 'blank',
+  lineColor: '#3B3A36',
 };
 
 /** Estilo de tapa de la libreta en la estantería. */

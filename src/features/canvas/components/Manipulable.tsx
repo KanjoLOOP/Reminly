@@ -104,7 +104,17 @@ export function Manipulable({
       commitTransform();
     });
 
-  const mainGesture = Gesture.Simultaneous(pan, pinch, rotate);
+  // Toque simple para seleccionar (cuando NO está seleccionado).
+  const tap = Gesture.Tap().onEnd(() => {
+    if (onActivate) runOnJS(onActivate)();
+  });
+
+  // "Lock": solo el elemento seleccionado responde a mover/escalar/rotar.
+  // El resto solo se puede seleccionar con un toque, así un toque accidental
+  // sobre otro elemento no interrumpe la manipulación en curso.
+  const mainGesture = selected
+    ? Gesture.Simultaneous(pan, pinch, rotate)
+    : tap;
 
   const resizeGesture = Gesture.Pan()
     .onUpdate((e) => {

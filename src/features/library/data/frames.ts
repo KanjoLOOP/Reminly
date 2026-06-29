@@ -79,6 +79,60 @@ export const FRAME_OPTIONS: FrameOption[] = [
     },
     imageRadius: 2,
   },
+  {
+    id: 'wide',
+    label: 'Margen',
+    container: {
+      backgroundColor: colors.white,
+      padding: 16,
+      paddingBottom: 32,
+      borderRadius: 4,
+    },
+    imageRadius: 2,
+  },
+  {
+    id: 'ink',
+    label: 'Tinta',
+    container: {
+      backgroundColor: colors.ink,
+      padding: 8,
+      borderRadius: 4,
+    },
+    imageRadius: 2,
+  },
+  {
+    id: 'cream',
+    label: 'Crema',
+    container: {
+      backgroundColor: colors.paperCream,
+      padding: 8,
+      paddingBottom: 22,
+      borderRadius: 4,
+    },
+    imageRadius: 2,
+  },
+  {
+    id: 'line',
+    label: 'Filete',
+    container: {
+      backgroundColor: colors.white,
+      padding: 5,
+      borderRadius: 4,
+      borderWidth: 1.5,
+      borderColor: colors.ink,
+    },
+    imageRadius: 1,
+  },
+  {
+    id: 'pill',
+    label: 'Cápsula',
+    container: {
+      backgroundColor: colors.white,
+      padding: 6,
+      borderRadius: 40,
+    },
+    imageRadius: 34,
+  },
 ];
 
 export const DEFAULT_FRAME = FRAME_OPTIONS[0];

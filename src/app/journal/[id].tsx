@@ -96,7 +96,7 @@ function normalize(j: Journal): Journal {
   return {
     ...j,
     cover: j.cover ?? DEFAULT_COVER,
-    background: j.background ?? DEFAULT_BACKGROUND,
+    background: { ...DEFAULT_BACKGROUND, ...(j.background ?? {}) },
     items,
   };
 }
@@ -432,7 +432,11 @@ export default function JournalEditor() {
 
       {/* Lienzo */}
       <View style={styles.canvas}>
-        <PaperBackground color={background.color} pattern={background.pattern} />
+        <PaperBackground
+          color={background.color}
+          pattern={background.pattern}
+          lineColor={background.lineColor}
+        />
 
         <Pressable
           style={StyleSheet.absoluteFill}
