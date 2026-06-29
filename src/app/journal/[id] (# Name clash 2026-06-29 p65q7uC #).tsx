@@ -410,11 +410,13 @@ export default function JournalEditor() {
     setEditingId(null);
   };
 
-  // Al salir, si la libreta quedó vacía (creada y sin usar), se descarta.
+  // Al salir: descarta si quedó vacía, o fuerza el guardado pendiente.
   const goBack = () => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     if (id && items.length === 0) {
       deleteJournal(id);
+    } else if (journal) {
+      saveJournal({ ...journal, background, items });
     }
     router.back();
   };
@@ -712,6 +714,18 @@ const styles = StyleSheet.create({
   titleWrap: { flex: 1 },
   headerTitle: { fontSize: 20, fontWeight: '700', color: colors.ink },
   canvas: { flex: 1, overflow: 'hidden' },
+  emptyHint: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyHintText: {
+    fontSize: 16,
+    color: colors.inkMuted,
+    textAlign: 'center',
+    opacity: 0.7,
+  },
   frame: {
     width: '100%',
     height: '100%',
