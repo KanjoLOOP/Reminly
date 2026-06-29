@@ -485,7 +485,14 @@ export default function JournalEditor() {
                   {item.text}
                 </Text>
               ) : item.kind === 'sticker' ? (
-                <Text style={styles.sticker}>{item.emoji}</Text>
+                <View
+                  style={[
+                    styles.stickerBox,
+                    { width: item.width, height: item.height },
+                  ]}
+                >
+                  <Text style={styles.sticker}>{item.emoji}</Text>
+                </View>
               ) : item.kind === 'washi' ? (
                 <WashiStrip style={item.style} height={item.height} />
               ) : item.kind === 'video' ? (
@@ -656,6 +663,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   handwriting: { fontSize: 40, color: colors.ink },
+  stickerBox: { alignItems: 'center', justifyContent: 'center' },
   sticker: { fontSize: 64 },
   toolbarWrap: {
     position: 'absolute',

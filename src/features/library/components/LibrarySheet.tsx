@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 
 import { colors, radius } from '../../../core/theme/tokens';
+import { PALETTE } from '../../../core/theme/palette';
 import { FONT_OPTIONS } from '../../../core/theme/fonts';
 import type { PaperPattern } from '../../../data/models/journal';
 import { FRAME_OPTIONS } from '../data/frames';
@@ -36,10 +37,7 @@ type Props = {
   onSetBackground: (bg: { color: string; pattern: PaperPattern }) => void;
 };
 
-const TEXT_COLORS = [
-  '#3B3A36', '#9A8F7D', '#E8A598', '#D98A73', '#A7B9A0',
-  '#6E7F74', '#9FC0D4', '#C9B3D8', '#E9C46A', '#FFFFFF',
-];
+const TEXT_COLORS = PALETTE;
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'stickers', label: 'Stickers' },
@@ -49,10 +47,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'tipografias', label: 'Tipografías' },
 ];
 
-const PAPER_COLORS = [
-  '#FBF7F0', '#F4EDE1', '#EFE7D6', '#FBEAE5',
-  '#E9EFE6', '#E6EEF2', '#F0E9F2', '#FFFFFF',
-];
+const PAPER_COLORS = PALETTE;
 
 const PATTERNS: { id: PaperPattern; label: string }[] = [
   { id: 'blank', label: 'Liso' },

@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { colors, radius } from '../../../core/theme/tokens';
 import type { CoverStyle } from '../../../data/models/journal';
@@ -50,6 +57,10 @@ export function CoverEditor({
             {mode === 'create' ? 'Nueva libreta' : 'Editar portada'}
           </Text>
 
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
           {/* Vista previa en vivo */}
           <View style={styles.previewWrap}>
             <View style={styles.previewBook}>
@@ -116,6 +127,7 @@ export function CoverEditor({
               <Text style={styles.deleteText}>Borrar libreta</Text>
             </Pressable>
           )}
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -136,6 +148,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 28,
     gap: 10,
+    maxHeight: '88%',
+  },
+  scrollContent: {
+    gap: 10,
+    paddingBottom: 6,
   },
   grabber: {
     alignSelf: 'center',
