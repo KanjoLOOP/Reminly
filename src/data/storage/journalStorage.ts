@@ -7,7 +7,10 @@
  *
  * Operaciones síncronas (File/Directory). rotation se guarda en radianes.
  */
+import * as DocumentPicker from 'expo-document-picker';
 import { Directory, File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 
 import {
   CanvasItem,
@@ -156,5 +159,106 @@ export function persistImage(journalId: string, srcUri: string): string {
   } catch (e) {
     console.warn('No se pudo copiar la imagen a media/', e);
     return srcUri;
+  }
+}
+
+function remapMediaUri(mediaDir: Directory, uri: string): string {
+  const name = uri.split('/').pop();
+  return name ? new File(mediaDir, name).uri : uri;
+}
+
+/** Exporta una libreta a un archivo .reminly (zip) y abre el menú de compartir. */
+export async function exportJournal(id: string): Promise<void> {
+  const j = loadJournal(id);
+  if (!j) return;
+
+  const files: Record<string, Uint8Array> = {
+    'manifest.json': strToU8(
+      JSON.stringify({
+        app: 'Reminly',
+        schemaVersion: SCHEMA_VERSION,
+        exportedAt: new Date().toISOString(),
+        title: j.title,
+      })
+    ),
+    'journal.json': strToU8(JSON.stringify(j)),
+  };
+
+  const mediaDir = new Directory(journalDir(id), MEDIA_DIR);
+  if (mediaDir.exists) {
+    for (const entry of mediaDir.list()) {
+      if (entry instanceof File) {
+        files[`media/${entry.name}`] = entry.bytesSync();
+      }
+    }
+  }
+
+  const zipped = zipSync(files);
+  const safe =
+    (j.title || 'reminly').trim().replace(/[^\w\-]+/g, '_') || 'reminly';
+  const out = new File(Paths.cache, `${safe}.reminly`);
+  try {
+    if (out.exists) out.delete();
+  } catch {
+    // si no se puede borrar, write lo sobrescribe
+  }
+  out.write(zipped);
+
+  if (await Sharing.isAvailableAsync()) {
+    await Sharing.shareAsync(out.uri, {
+      mimeType: 'application/zip',
+      dialogTitle: 'Compartir libreta',
+    });
+  }
+}
+
+/** Importa un archivo .reminly como una libreta nueva. Devuelve su id o null. */
+export async function importJournal(): Promise<string | null> {
+  const res = await DocumentPicker.getDocumentAsync({
+    type: '*/*',
+    copyToCacheDirectory: true,
+  });
+  if (res.canceled || !res.assets?.[0]) return null;
+
+  try {
+    const bytes = new File(res.assets[0].uri).bytesSync();
+    const unzipped = unzipSync(bytes);
+    const raw = unzipped['journal.json'];
+    if (!raw) return null;
+    const j = JSON.parse(strFromU8(raw)) as Journal;
+
+    const id = newId('j');
+    const now = new Date().toISOString();
+    const dir = journalDir(id);
+    if (!dir.exists) dir.create();
+    const media = new Directory(dir, MEDIA_DIR);
+    if (!media.exists) media.create();
+
+    for (const path of Object.keys(unzipped)) {
+      if (path.startsWith('media/')) {
+        const name = path.slice('media/'.length);
+        if (name) new File(media, name).write(unzipped[path]);
+      }
+    }
+
+    const items = j.items.map((it) =>
+      it.kind === 'photo' || it.kind === 'video' || it.kind === 'audio'
+        ? { ...it, uri: remapMediaUri(media, it.uri) }
+        : it
+    ) as CanvasItem[];
+
+    const imported: Journal = {
+      ...j,
+      id,
+      title: `${j.title} (importada)`,
+      createdAt: now,
+      updatedAt: now,
+      items,
+    };
+    new File(dir, JOURNAL_FILE).write(JSON.stringify(imported));
+    return id;
+  } catch (e) {
+    console.warn('No se pudo importar el archivo', e);
+    return null;
   }
 }

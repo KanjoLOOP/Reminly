@@ -15,6 +15,8 @@ import {
 import {
   createJournal,
   deleteJournal,
+  exportJournal,
+  importJournal,
   listJournals,
   setJournalCover,
 } from '../data/storage/journalStorage';
@@ -55,17 +57,36 @@ export default function Home() {
     }
   };
 
+  const exportTarget = () => {
+    if (editor?.mode === 'edit') {
+      const tid = editor.target.id;
+      setEditor(null);
+      exportJournal(tid);
+    }
+  };
+
+  const doImport = async () => {
+    const newId = await importJournal();
+    refresh();
+    if (newId) router.push(`/journal/${newId}`);
+  };
+
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
 
       <View style={styles.header}>
-        <Text style={styles.title}>Mis recuerdos</Text>
-        <Text style={styles.subtitle}>
-          {journals.length === 0
-            ? 'Aún no tienes ninguna libreta'
-            : `${journals.length} ${journals.length === 1 ? 'libreta' : 'libretas'}`}
-        </Text>
+        <View style={styles.headerText}>
+          <Text style={styles.title}>Mis recuerdos</Text>
+          <Text style={styles.subtitle}>
+            {journals.length === 0
+              ? 'Aún no tienes ninguna libreta'
+              : `${journals.length} ${journals.length === 1 ? 'libreta' : 'libretas'}`}
+          </Text>
+        </View>
+        <Pressable style={styles.importBtn} onPress={doImport} hitSlop={8}>
+          <Text style={styles.importText}>Importar</Text>
+        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.grid}>
@@ -108,6 +129,7 @@ export default function Home() {
         onConfirm={confirmCover}
         onClose={() => setEditor(null)}
         onDelete={removeJournal}
+        onExport={exportTarget}
       />
     </SafeAreaView>
   );
@@ -119,9 +141,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paperCream,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 12,
+  },
+  headerText: {
+    flex: 1,
+  },
+  importBtn: {
+    backgroundColor: colors.paperLight,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.kraftMuted,
+  },
+  importText: {
+    color: colors.ink,
+    fontSize: 14,
+    fontWeight: '700',
   },
   title: {
     fontSize: 30,

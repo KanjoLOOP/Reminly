@@ -16,6 +16,7 @@ type Props = {
   onConfirm: (color: string, style: CoverStyle) => void;
   onClose: () => void;
   onDelete?: () => void;
+  onExport?: () => void;
 };
 
 export function CoverEditor({
@@ -28,6 +29,7 @@ export function CoverEditor({
   onConfirm,
   onClose,
   onDelete,
+  onExport,
 }: Props) {
   const [color, setColor] = useState(initialColor);
   const [style, setStyle] = useState<CoverStyle>(initialStyle);
@@ -102,6 +104,12 @@ export function CoverEditor({
               {mode === 'create' ? 'Crear libreta' : 'Guardar'}
             </Text>
           </Pressable>
+
+          {mode === 'edit' && onExport && (
+            <Pressable style={styles.export} onPress={onExport}>
+              <Text style={styles.exportText}>Exportar / Compartir</Text>
+            </Pressable>
+          )}
 
           {mode === 'edit' && onDelete && (
             <Pressable style={styles.delete} onPress={onDelete}>
@@ -206,6 +214,17 @@ const styles = StyleSheet.create({
   confirmText: {
     color: colors.white,
     fontSize: 16,
+    fontWeight: '700',
+  },
+  export: {
+    alignItems: 'center',
+    paddingVertical: 13,
+    backgroundColor: colors.paperCream,
+    borderRadius: radius.pill,
+  },
+  exportText: {
+    color: colors.ink,
+    fontSize: 15,
     fontWeight: '700',
   },
   delete: {
