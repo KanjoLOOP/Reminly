@@ -49,7 +49,27 @@ export type WashiItem = BaseItem & {
   style: string;
 };
 
-export type CanvasItem = PhotoItem | TextItem | StickerItem | WashiItem;
+export type AudioItem = BaseItem & {
+  kind: 'audio';
+  /** URI local del audio grabado. */
+  uri: string;
+  /** Duración en milisegundos. */
+  durationMs: number;
+};
+
+export type VideoItem = BaseItem & {
+  kind: 'video';
+  /** URI local del vídeo. */
+  uri: string;
+};
+
+export type CanvasItem =
+  | PhotoItem
+  | TextItem
+  | StickerItem
+  | WashiItem
+  | AudioItem
+  | VideoItem;
 
 /** Patrón del papel del lienzo. */
 export type PaperPattern = 'blank' | 'grid' | 'lines';

@@ -1,14 +1,18 @@
+import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Manipulable, Size } from '../../features/canvas/components/Manipulable';
 import { PaperBackground } from '../../features/canvas/components/PaperBackground';
 import { TextEditorModal } from '../../features/canvas/components/TextEditorModal';
 import { WashiStrip } from '../../features/canvas/components/WashiStrip';
+import { AudioNote } from '../../features/canvas/components/AudioNote';
+import { AudioRecorderModal } from '../../features/canvas/components/AudioRecorderModal';
+import { VideoElement } from '../../features/canvas/components/VideoElement';
 import { LibrarySheet } from '../../features/library/components/LibrarySheet';
 import { DEFAULT_FRAME, getFrame } from '../../features/library/data/frames';
 import { DEFAULT_FONT } from '../../core/theme/fonts';
@@ -38,12 +42,42 @@ const TEXT_H = 80;
 const STICKER = 90;
 const WASHI_W = 170;
 const WASHI_H = 34;
+const AUDIO_W = 210;
+const AUDIO_H = 64;
+const VIDEO_W = 220;
+const VIDEO_H = 280;
 
 function defaultW(kind: CanvasItem['kind']) {
-  return kind === 'photo' ? PHOTO_W : kind === 'text' ? TEXT_W : kind === 'washi' ? WASHI_W : STICKER;
+  switch (kind) {
+    case 'photo':
+      return PHOTO_W;
+    case 'video':
+      return VIDEO_W;
+    case 'text':
+      return TEXT_W;
+    case 'washi':
+      return WASHI_W;
+    case 'audio':
+      return AUDIO_W;
+    default:
+      return STICKER;
+  }
 }
 function defaultH(kind: CanvasItem['kind']) {
-  return kind === 'photo' ? PHOTO_H : kind === 'text' ? TEXT_H : kind === 'washi' ? WASHI_H : STICKER;
+  switch (kind) {
+    case 'photo':
+      return PHOTO_H;
+    case 'video':
+      return VIDEO_H;
+    case 'text':
+      return TEXT_H;
+    case 'washi':
+      return WASHI_H;
+    case 'audio':
+      return AUDIO_H;
+    default:
+      return STICKER;
+  }
 }
 
 function normalize(j: Journal): Journal {
@@ -86,6 +120,7 @@ export default function JournalEditor() {
 
   const [libOpen, setLibOpen] = useState(false);
   const [libTab, setLibTab] = useState<LibTab>('stickers');
+  const [recOpen, setRecOpen] = useState(false);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -265,6 +300,56 @@ export default function JournalEditor() {
     setSelectedId(itemId);
   };
 
+  const addVideo = async () => {
+    if (!id) return;
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['videos'],
+      quality: 1,
+    });
+    if (!res.canceled) {
+      const uri = persistImage(id, res.assets[0].uri);
+      const itemId = nextId();
+      setItems((prev) => [
+        ...prev,
+        {
+          id: itemId,
+          kind: 'video',
+          uri,
+          x: 90,
+          y: 240,
+          width: VIDEO_W,
+          height: VIDEO_H,
+          scale: 1,
+          rotation: 0.03,
+        },
+      ]);
+      setSelectedId(itemId);
+    }
+  };
+
+  const onSaveAudio = (uri: string, durationMs: number) => {
+    setRecOpen(false);
+    if (!id) return;
+    const persisted = persistImage(id, uri);
+    const itemId = nextId();
+    setItems((prev) => [
+      ...prev,
+      {
+        id: itemId,
+        kind: 'audio',
+        uri: persisted,
+        durationMs,
+        x: 80,
+        y: 300,
+        width: AUDIO_W,
+        height: AUDIO_H,
+        scale: 1,
+        rotation: 0,
+      },
+    ]);
+    setSelectedId(itemId);
+  };
+
   const openLibrary = () => {
     setLibTab(
       selectedItem?.kind === 'text'
@@ -366,9 +451,9 @@ export default function JournalEditor() {
               }}
               size={{ width: item.width, height: item.height }}
               resizeMode={
-                item.kind === 'photo'
+                item.kind === 'photo' || item.kind === 'video'
                   ? 'both'
-                  : item.kind === 'sticker'
+                  : item.kind === 'sticker' || item.kind === 'audio'
                     ? 'none'
                     : 'horizontal'
               }
@@ -387,7 +472,7 @@ export default function JournalEditor() {
                       styles.photo,
                       { borderRadius: getFrame(item.frame).imageRadius },
                     ]}
-                    resizeMode="cover"
+                    contentFit="cover"
                   />
                 </View>
               ) : item.kind === 'text' ? (
@@ -401,8 +486,14 @@ export default function JournalEditor() {
                 </Text>
               ) : item.kind === 'sticker' ? (
                 <Text style={styles.sticker}>{item.emoji}</Text>
-              ) : (
+              ) : item.kind === 'washi' ? (
                 <WashiStrip style={item.style} height={item.height} />
+              ) : item.kind === 'video' ? (
+                <View style={styles.videoFrame}>
+                  <VideoElement uri={item.uri} radius={6} />
+                </View>
+              ) : (
+                <AudioNote uri={item.uri} durationMs={item.durationMs} />
               )}
             </Manipulable>
           ))}
@@ -459,6 +550,18 @@ export default function JournalEditor() {
               </Pressable>
               <Pressable
                 style={[styles.toolButton, styles.btnNeutral]}
+                onPress={() => setRecOpen(true)}
+              >
+                <Text style={styles.btnNeutralText}>＋ Audio</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.toolButton, styles.btnNeutral]}
+                onPress={addVideo}
+              >
+                <Text style={styles.btnNeutralText}>＋ Vídeo</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.toolButton, styles.btnNeutral]}
                 onPress={openLibrary}
               >
                 <Text style={styles.btnNeutralText}>Biblioteca</Text>
@@ -483,6 +586,11 @@ export default function JournalEditor() {
         onCancel={() => setRenaming(false)}
         title="Título del journal"
         placeholder="Verano '26…"
+      />
+      <AudioRecorderModal
+        visible={recOpen}
+        onSave={onSaveAudio}
+        onCancel={() => setRecOpen(false)}
       />
       <LibrarySheet
         visible={libOpen}
@@ -535,6 +643,18 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   photo: { flex: 1, backgroundColor: colors.kraftLight },
+  videoFrame: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.white,
+    padding: 6,
+    borderRadius: 8,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    elevation: 8,
+  },
   handwriting: { fontSize: 40, color: colors.ink },
   sticker: { fontSize: 64 },
   toolbarWrap: {
@@ -546,11 +666,15 @@ const styles = StyleSheet.create({
   },
   toolbar: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    maxWidth: '94%',
     backgroundColor: colors.paperLight,
     paddingHorizontal: 8,
     paddingVertical: 9,
-    borderRadius: radius.pill,
+    borderRadius: radius.lg,
     marginBottom: 12,
+    marginHorizontal: 12,
     gap: 6,
     shadowColor: colors.ink,
     shadowOffset: { width: 0, height: 6 },
