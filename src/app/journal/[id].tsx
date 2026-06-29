@@ -47,6 +47,19 @@ const AUDIO_H = 64;
 const VIDEO_W = 220;
 const VIDEO_H = 280;
 
+// Ajusta una imagen/vídeo a una caja máxima conservando su proporción,
+// para que no se recorte al colocarlo.
+function fitSize(aw?: number, ah?: number, maxW = 240, maxH = 300) {
+  if (!aw || !ah) return { width: maxW, height: maxH };
+  let w = maxW;
+  let h = (maxW * ah) / aw;
+  if (h > maxH) {
+    h = maxH;
+    w = (maxH * aw) / ah;
+  }
+  return { width: Math.round(w), height: Math.round(h) };
+}
+
 function defaultW(kind: CanvasItem['kind']) {
   switch (kind) {
     case 'photo':
@@ -217,7 +230,9 @@ export default function JournalEditor() {
       quality: 0.8,
     });
     if (!res.canceled) {
-      const uri = persistImage(id, res.assets[0].uri);
+      const a = res.assets[0];
+      const uri = persistImage(id, a.uri);
+      const { width, height } = fitSize(a.width, a.height);
       const itemId = nextId();
       setItems((prev) => [
         ...prev,
@@ -228,8 +243,8 @@ export default function JournalEditor() {
           frame: DEFAULT_FRAME.id,
           x: 90,
           y: 260,
-          width: PHOTO_W,
-          height: PHOTO_H,
+          width,
+          height,
           scale: 1,
           rotation: 0.05,
         },
@@ -307,7 +322,9 @@ export default function JournalEditor() {
       quality: 1,
     });
     if (!res.canceled) {
-      const uri = persistImage(id, res.assets[0].uri);
+      const a = res.assets[0];
+      const uri = persistImage(id, a.uri);
+      const { width, height } = fitSize(a.width, a.height);
       const itemId = nextId();
       setItems((prev) => [
         ...prev,
@@ -317,8 +334,8 @@ export default function JournalEditor() {
           uri,
           x: 90,
           y: 240,
-          width: VIDEO_W,
-          height: VIDEO_H,
+          width,
+          height,
           scale: 1,
           rotation: 0.03,
         },

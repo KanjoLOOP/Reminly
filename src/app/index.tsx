@@ -84,9 +84,18 @@ export default function Home() {
               : `${journals.length} ${journals.length === 1 ? 'libreta' : 'libretas'}`}
           </Text>
         </View>
-        <Pressable style={styles.importBtn} onPress={doImport} hitSlop={8}>
-          <Text style={styles.importText}>Importar</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            style={styles.headerBtn}
+            onPress={() => router.push('/tray')}
+            hitSlop={8}
+          >
+            <Text style={styles.headerBtnText}>Bandeja</Text>
+          </Pressable>
+          <Pressable style={styles.headerBtn} onPress={doImport} hitSlop={8}>
+            <Text style={styles.headerBtnText}>Importar</Text>
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.grid}>
@@ -150,21 +159,25 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
   },
-  importBtn: {
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  headerBtn: {
     backgroundColor: colors.paperLight,
-    paddingHorizontal: 16,
+    paddingHorizontal: 13,
     paddingVertical: 9,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.kraftMuted,
   },
-  importText: {
+  headerBtnText: {
     color: colors.ink,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   title: {
-    fontSize: 30,
+    fontSize: 26,
     color: colors.ink,
     fontFamily: typography.handwritingBold,
   },
