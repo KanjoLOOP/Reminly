@@ -1,103 +1,61 @@
-<div align="center">
+# Reminly
 
-# 📖 Reminly
+App de journaling / scrapbook para guardar recuerdos. La idea es que montar una página
+bonita —con tus fotos, notas, stickers, washi tape, audios— sea rápido y se sienta como
+abrir una libreta de verdad, no como rellenar una app de notas.
 
-**Journaling digital y scrapbooking para guardar recuerdos de forma creativa.**
+Es un proyecto personal con el que estoy aprendiendo React Native a fondo. Todo es
+**local en el dispositivo**: sin cuentas, sin nube, sin tracking. Las libretas se pueden
+exportar a un archivo para pasarlas a otro móvil.
 
-Cálida, táctil y *local-first*. Como abrir una libreta llena de recuerdos.
+> Estado: en desarrollo. El editor y las libretas funcionan; faltan cosas (bandeja de
+> captura rápida, pulido y publicación). Voy iterando.
 
-`Expo` · `React Native` · `TypeScript` · `Android primero`
+## Qué hace ahora
 
-</div>
+- Estantería de libretas, cada una con su portada (tipo y color).
+- Lienzo libre donde colocar y manipular con gestos: fotos, GIFs, vídeos en bucle, notas
+  de voz, texto, stickers y washi tape.
+- Personalización: tipografías, color de texto, marcos de foto, papel del lienzo (color +
+  cuadrícula/líneas).
+- Guardado automático en local + export/import de libretas (`.reminly`).
 
----
+## Stack
 
-## ✨ Qué es
+Expo (React Native) + TypeScript. Navegación con expo-router, estado con Zustand, gestos
+con react-native-gesture-handler y reanimated. Multimedia con expo-image / expo-audio /
+expo-video. Persistencia con la API de archivos de Expo; el backup zipea con fflate.
 
-Reminly convierte el proceso lento de hacer un scrapbook bonito (imprimir fotos, pegar,
-decorar, escribir) en algo **rápido y agradable**, sin perder la sensación de estar
-creando algo personal.
+No uso backend a propósito: el objetivo es que funcione sin conexión y sin depender de
+nada externo.
 
-Un **lienzo libre** donde colocas y organizas fotos, texto, stickers, washi tapes y
-papeles. Todo se mueve, redimensiona y rota con los dedos. La estética se inspira en una
-libreta física —texturas de papel, sombras cálidas, pegatinas— y huye a propósito del look
-de una app de productividad.
+## Arrancar en local
 
-## 🎯 Principios
+Necesitas Node 20 LTS (con versiones más nuevas el SDK actual de Expo da problemas) y la
+app Expo Go en el móvil.
 
-- **El control es del usuario.** La app ayuda, no decide.
-- **Táctil y físico.** Manipular objetos sobre papel, no rellenar formularios.
-- **Simplicidad antes que potencia.**
-- **Local y privado.** Los recuerdos viven en el dispositivo.
-
-## 🧱 Stack
-
-| Capa | Tecnología |
-|---|---|
-| Framework | Expo (managed) + TypeScript |
-| Navegación | expo-router |
-| Estado | Zustand |
-| Canvas | react-native-gesture-handler + react-native-reanimated |
-| Media | expo-image · expo-image-picker · expo-image-manipulator |
-| Persistencia | expo-file-system (JSON por journal) |
-| Backup | expo-sharing · expo-document-picker (archivo `.reminly`) |
-
-> Sin cloud, sin cuentas, sin IA en el MVP. Todo local. Detalles y motivos en
-> [`docs/01-stack.md`](docs/01-stack.md) y [`docs/06-decisiones.md`](docs/06-decisiones.md).
-
-## 📂 Estructura
-
-```
-Reminly/
-├─ app/                 # Pantallas (expo-router)
-├─ src/
-│  ├─ features/         # canvas · library · tray · journal · backup
-│  ├─ core/             # ui + theme (design tokens)
-│  ├─ data/             # models · storage · repositories
-│  └─ lib/              # utilidades
-├─ assets/              # papers · stickers · washi · fonts · icons
-└─ docs/                # documentación viva del proyecto
+```bash
+npm install
+npx expo start
 ```
 
-Detalle completo en [`docs/02-arquitectura.md`](docs/02-arquitectura.md).
+Escanea el QR con Expo Go. Si móvil y PC no están en la misma red, usa `npx expo start --tunnel`.
 
-## 💾 Backup local
+## Estructura
 
-Cada journal se guarda como una carpeta (`journal.json` + `/media`). El **formato de
-guardado es el de backup**: exportar es comprimir esa carpeta en un archivo `.reminly`
-(zip) que se comparte y se importa en otro dispositivo. Esquema en
-[`docs/03-modelo-datos.md`](docs/03-modelo-datos.md).
+```
+src/
+  app/            rutas (expo-router): estantería y editor
+  features/
+    canvas/       el lienzo y los elementos manipulables
+    library/      stickers, papeles, washi, marcos, tipografías
+    journal/      portadas y estantería
+  core/theme/     colores, tipografías, paleta
+  data/           modelo y persistencia local
+docs/             notas de diseño y decisiones del proyecto
+```
 
-## 🗺️ Roadmap
+## Notas
 
-1. **Spike del canvas** — lienzo de papel con foto + texto manipulables. ⭐ mayor riesgo
-2. **Engine + persistencia** — serializar y guardar journals
-3. **Biblioteca de recursos** — stickers, papeles, washi, tipografías
-4. **Bandeja de recuerdos** — captura rápida → página
-5. **Backup `.reminly`** — export / import
-6. **Pulido + publicación** en Play Store
-
-Detalle en [`docs/04-roadmap.md`](docs/04-roadmap.md).
-
-## 🎨 Diseño
-
-Identidad cálida basada en papel: tipografías **Caveat** (manuscrita) + **Nunito** (UI),
-paleta de cremas y kraft con acentos terrosos, y sombras tintadas en cálido. Tokens en
-[`src/core/theme/tokens.ts`](src/core/theme/tokens.ts); guía en
-[`docs/05-design-system.md`](docs/05-design-system.md).
-
-## 🚧 Estado
-
-En diseño y planificación. Estructura, documentación y design tokens listos. Pendiente el
-scaffold de Expo y el spike del canvas.
-
-## 📚 Documentación
-
-Toda la documentación de desarrollo está en [`docs/`](docs/README.md) y se mantiene viva a
-medida que avanza el proyecto.
-
----
-
-<div align="center">
-<sub>Proyecto personal · construido con criterio de producto, no solo "que funcione".</sub>
-</div>
+Hay documentación de diseño y decisiones técnicas en [`docs/`](docs/), que uso sobre todo
+para no perder el hilo entre sesiones.
