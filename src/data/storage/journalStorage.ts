@@ -226,6 +226,7 @@ export async function importJournal(): Promise<string | null> {
     const raw = unzipped['journal.json'];
     if (!raw) return null;
     const j = JSON.parse(strFromU8(raw)) as Journal;
+    if (!j || typeof j !== 'object' || !Array.isArray(j.items)) return null;
 
     const id = newId('j');
     const now = new Date().toISOString();
@@ -241,11 +242,15 @@ export async function importJournal(): Promise<string | null> {
       }
     }
 
-    const items = j.items.map((it) =>
-      it.kind === 'photo' || it.kind === 'video' || it.kind === 'audio'
-        ? { ...it, uri: remapMediaUri(media, it.uri) }
-        : it
-    ) as CanvasItem[];
+    const VALID_KINDS = ['photo', 'text', 'sticker', 'washi', 'audio', 'video'];
+    const items = j.items
+      .filter((it) => it && VALID_KINDS.includes((it as { kind?: string }).kind ?? ''))
+      .slice(0, 2000) // tope defensivo contra archivos enormes
+      .map((it) =>
+        it.kind === 'photo' || it.kind === 'video' || it.kind === 'audio'
+          ? { ...it, uri: remapMediaUri(media, it.uri) }
+          : it
+      ) as CanvasItem[];
 
     const imported: Journal = {
       ...j,

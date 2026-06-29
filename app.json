@@ -8,7 +8,11 @@
     "scheme": "reminly",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Reminly usa el micrófono para grabar notas de voz que añades a tus libretas.",
+        "NSPhotoLibraryUsageDescription": "Reminly accede a tus fotos y vídeos para que puedas añadirlos a tus libretas. Todo se guarda solo en tu dispositivo."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +21,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "blockedPermissions": ["android.permission.CAMERA"]
     },
     "web": {
       "output": "static",
@@ -35,7 +40,12 @@
           }
         }
       ],
-      "expo-audio",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Reminly usa el micrófono para grabar notas de voz."
+        }
+      ],
       "expo-video"
     ],
     "experiments": {

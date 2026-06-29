@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AudioRecorderModal } from '../features/canvas/components/AudioRecorderModal';
 import { TextEditorModal } from '../features/canvas/components/TextEditorModal';
 import { colors, radius } from '../core/theme/tokens';
+import { isGif, processPhoto } from '../data/media';
 import type { JournalSummary } from '../data/models/journal';
 import type { TrayItem } from '../data/models/tray';
 import { listJournals } from '../data/storage/journalStorage';
@@ -52,7 +53,12 @@ export default function Tray() {
       quality: 0.8,
     });
     if (!res.canceled) {
-      addTrayPhoto(res.assets[0].uri);
+      const a = res.assets[0];
+      const uri = await processPhoto(a.uri, {
+        gif: isGif(a.uri, a.mimeType),
+        width: a.width,
+      });
+      addTrayPhoto(uri);
       refresh();
     }
   };

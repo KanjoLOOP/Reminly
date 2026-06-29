@@ -1,51 +1,38 @@
 # Stack técnico
 
-> Stack realista para un perfil junior (DAM), en solitario, con objetivo de publicar en
-> Play Store. Moderno pero sin sobre-ingeniería. Última actualización: 2026-06-27.
+> Estado real del proyecto. Última actualización: 2026-06-29.
 
 ## Resumen
 
-| Capa | Elección | Por qué |
+| Capa | Elección | Notas |
 |---|---|---|
-| Framework | **Expo (managed) + TypeScript** | Camino más corto a Play Store. EAS compila y sube sin tocar Gradle/Xcode. |
-| Lenguaje | **TypeScript** (strict) | Tipado seguro; familiar viniendo de Java/C#. |
-| Navegación | **expo-router** | Rutas basadas en archivos (estilo Next). Curva suave, deep links gratis. |
-| Estado | **Zustand** | Mínimo boilerplate. El documento abierto es un store. |
-| Canvas | **react-native-gesture-handler + react-native-reanimated** | Mover/escalar/rotar en el hilo de UI (60–120 fps) sobre Views normales. |
-| Imágenes | **expo-image**, **expo-image-picker**, **expo-image-manipulator** | Selección + compresión de fotos. |
-| Sistema de archivos | **expo-file-system** | Guardar journals y media en local. |
-| Backup | **expo-sharing** + **expo-document-picker** + zip | Export/import `.reminly` sin backend. |
+| Framework | **Expo (managed) + TypeScript** | Build y publicación con EAS. Requiere **Node 20 LTS**. |
+| Navegación | **expo-router** | Rutas por archivos en `src/app`. |
+| Estado | React state local | El documento abierto vive en `useState`; no hizo falta un store global aún. |
+| Gestos / animación | **react-native-gesture-handler** + **react-native-reanimated** | Mover/escalar/rotar/redimensionar en el hilo de UI. |
+| Imágenes / GIF | **expo-image** | Render con cache; anima GIFs. |
+| Selección de media | **expo-image-picker** | Fotos, GIFs y vídeos de la galería. |
+| Procesado de imagen | **expo-image-manipulator** | Compresión + **borrado de EXIF** (privacidad). |
+| Audio | **expo-audio** | Grabar y reproducir notas de voz. |
+| Vídeo | **expo-video** | Reproducción en bucle, silenciado. |
+| Persistencia | **expo-file-system** (API `File`/`Directory`, SDK 54) | Todo local. |
+| Backup | **fflate** (zip JS puro) + **expo-sharing** + **expo-document-picker** | Export/import `.reminly` sin módulos nativos. |
+| Bottom sheets | Modal propio | `@gorhom/bottom-sheet` se probó y se descartó (ver decisiones). |
 
-## Decisión clave: el canvas SIN Skia (de momento)
+## Principios
 
-Montar un engine de canvas en **Skia** desde cero es trabajo de senior. Para el MVP, cada
-elemento del lienzo es una **`View` posicionada en absoluto** con un gesto compuesto de
-Reanimated (pan + pinch + rotate). Se consigue el ~80% del "wow" con una fracción de la
-dificultad:
+- **Local-first**: sin backend, sin cuentas, **sin ninguna llamada de red**. Privacidad por diseño.
+- **Sin sobre-ingeniería**: se añade complejidad solo cuando hace falta.
+- **Gestos en el hilo de UI** para que el lienzo vaya fluido.
 
-- Textura de papel → `ImageBackground`.
-- Sombras → props nativas (`shadowColor`, `elevation`).
-- Stickers / fotos → `<Image>`. Texto → `<Text>` editable.
+## Decisión clave: canvas sin Skia
 
-**Skia se reserva** para una fase posterior y **solo** para el dibujo a mano alzada.
+El lienzo se construye con `gesture-handler` + `reanimated` sobre `View`s normales, no con
+un engine Skia. Da el resultado buscado con mucha menos complejidad. Skia se reservaría para
+dibujo a mano alzada (no implementado).
 
-## Lo que NO usamos (y por qué)
+## Pendiente / futuro
 
-- **Redux** → demasiado boilerplate para esto. Zustand cubre el caso.
-- **SQLite (por ahora)** → conceptos de más (migraciones, SQL). Guardamos JSON por journal.
-  Se migrará a `expo-sqlite` solo si el rendimiento lo exige (cientos de páginas).
-- **AWS / Supabase / backend** → fuera. Todo local. Sin coste, sin superficie de seguridad.
-- **IA** → fuera del MVP. Entrará como ayuda creativa opcional más adelante.
-- **Bare React Native** → fricción sin beneficio frente a Expo managed.
-
-## Dependencias previstas (instalación en el scaffold)
-
-```
-expo, expo-router, expo-image, expo-image-picker, expo-image-manipulator,
-expo-file-system, expo-sharing, expo-document-picker,
-react-native-gesture-handler, react-native-reanimated, zustand,
-react-native-uuid (o crypto.randomUUID)
-```
-
-Zip: evaluar `react-native-zip-archive` vs solución basada en `expo-file-system`.
-Ver [03-modelo-datos](03-modelo-datos.md) para el formato de backup.
+- Dibujo a mano alzada (requeriría Skia).
+- Boomerang / recorte de vídeo a 5s (requeriría ffmpeg → development build).
+- Buscador de GIFs (Giphy/Tenor) — ahora los GIFs salen de la galería.

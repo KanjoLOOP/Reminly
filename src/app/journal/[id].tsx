@@ -17,6 +17,7 @@ import { LibrarySheet } from '../../features/library/components/LibrarySheet';
 import { DEFAULT_FRAME, getFrame } from '../../features/library/data/frames';
 import { DEFAULT_FONT } from '../../core/theme/fonts';
 import { colors, radius } from '../../core/theme/tokens';
+import { isGif, processPhoto } from '../../data/media';
 import {
   CanvasItem,
   DEFAULT_BACKGROUND,
@@ -231,7 +232,11 @@ export default function JournalEditor() {
     });
     if (!res.canceled) {
       const a = res.assets[0];
-      const uri = persistImage(id, a.uri);
+      const processed = await processPhoto(a.uri, {
+        gif: isGif(a.uri, a.mimeType),
+        width: a.width,
+      });
+      const uri = persistImage(id, processed);
       const { width, height } = fitSize(a.width, a.height);
       const itemId = nextId();
       setItems((prev) => [
@@ -712,6 +717,18 @@ const styles = StyleSheet.create({
   titleWrap: { flex: 1 },
   headerTitle: { fontSize: 20, fontWeight: '700', color: colors.ink },
   canvas: { flex: 1, overflow: 'hidden' },
+  emptyHint: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyHintText: {
+    fontSize: 16,
+    color: colors.inkMuted,
+    textAlign: 'center',
+    opacity: 0.7,
+  },
   frame: {
     width: '100%',
     height: '100%',

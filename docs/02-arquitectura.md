@@ -1,73 +1,52 @@
-# Arquitectura y estructura del proyecto
+# Arquitectura y estructura
 
-> Última actualización: 2026-06-27.
+> Estado real. Última actualización: 2026-06-29.
 
 ## Estructura de carpetas
 
-Organización **por features**, no por tipo de archivo. La lógica del canvas se mantiene
-separada de su render para poder testearla y, en el futuro, reutilizarla en web.
+Organización **por features**. La estructura se ha limpiado de los restos de la plantilla
+Expo; solo queda código en uso.
 
 ```
-Reminly/
-├─ app/                      # Pantallas (expo-router, file-based routing)
-├─ src/
-│  ├─ features/
-│  │  ├─ canvas/             # NÚCLEO: lienzo libre
-│  │  │  ├─ components/      #   elementos visuales (foto, texto, sticker, gizmos)
-│  │  │  ├─ hooks/           #   useGesture, useSelection...
-│  │  │  ├─ engine/          #   lógica PURA: transformaciones, serialización, z-order
-│  │  │  └─ types/           #   tipos de nodos y página
-│  │  ├─ library/            # Biblioteca de recursos (stickers, papeles, washi, fuentes)
-│  │  │  ├─ components/
-│  │  │  └─ data/            #   catálogo/índice de recursos
-│  │  ├─ tray/               # Bandeja de recuerdos (quick capture)
-│  │  │  └─ components/
-│  │  ├─ journal/            # Lista de journals, páginas, miniaturas
-│  │  │  ├─ components/
-│  │  │  └─ hooks/
-│  │  └─ backup/             # Export/import .reminly
-│  ├─ core/
-│  │  ├─ ui/                 # Componentes base (Button, Sheet, Icon...)
-│  │  └─ theme/              # Design tokens, colores, tipografías, sombras
-│  ├─ data/
-│  │  ├─ models/             # Tipos de dominio (Journal, Page, Node, Media)
-│  │  ├─ storage/            # Acceso a FileSystem: leer/escribir journal.json y media
-│  │  └─ repositories/       # API de alto nivel (journalRepository, mediaRepository)
-│  └─ lib/                   # Utilidades, helpers, constantes
-├─ assets/
-│  ├─ papers/                # Fondos de papel
-│  ├─ stickers/              # Pegatinas
-│  ├─ washi/                 # Cintas washi
-│  ├─ fonts/                 # Tipografías manuscritas
-│  └─ icons/                 # Iconografía de la UI
-└─ docs/                     # Esta documentación
+src/
+├─ app/                          # Pantallas (expo-router)
+│  ├─ _layout.tsx                #   Stack raíz + carga de fuentes
+│  ├─ index.tsx                  #   Estantería de libretas (home)
+│  ├─ tray.tsx                   #   Bandeja de recuerdos
+│  └─ journal/[id].tsx           #   Editor del lienzo
+├─ features/
+│  ├─ canvas/components/         # Manipulable, PaperBackground, WashiStrip,
+│  │                             #   VideoElement, AudioNote, AudioRecorderModal,
+│  │                             #   TextEditorModal
+│  ├─ journal/                   # CoverEditor, NotebookCover + data/covers
+│  └─ library/                   # LibrarySheet + data/{stickers,washi,frames}
+├─ core/theme/                   # tokens, palette, fonts (design system)
+└─ data/
+   ├─ models/                    # journal.ts, tray.ts (tipos de dominio)
+   ├─ storage/                   # journalStorage, trayStorage (FileSystem)
+   └─ media.ts                   # compresión + borrado de EXIF
 ```
 
-## Capas y responsabilidades
+## Capas
 
-- **`features/*`** — todo lo que ve y toca el usuario, agrupado por funcionalidad.
-- **`canvas/engine`** — **lógica pura y testeable**. No importa React Native. Convierte
-  gestos en transformaciones y serializa la página a/desde JSON. Aquí vivirá undo/redo.
-- **`core`** — design system y componentes reutilizables. Una sola fuente de verdad para
-  colores, sombras y tipografías (ver [05-design-system](05-design-system.md)).
-- **`data`** — persistencia. `storage` toca el FileSystem; `repositories` exponen una API
-  limpia (`getJournal`, `savePage`, `importBundle`) sin que el resto sepa de archivos.
+- **`app/`** — pantallas y orquestación; mantienen el estado de la pantalla.
+- **`features/`** — UI agrupada por funcionalidad. `canvas` es el núcleo; `Manipulable`
+  encapsula todos los gestos y reporta la transformación al soltar.
+- **`core/theme`** — fuente única de design tokens (`tokens`, `palette`, `fonts`).
+- **`data/`** — modelo de dominio + persistencia local; nada de UI aquí.
 
-## Regla de oro
-
-> El **canvas engine** debe poder serializar una página a JSON y reconstruirla, sin
-> depender del render. Eso habilita tests, undo/redo y portabilidad futura a web.
-
-## Flujo de datos (alto nivel)
+## Flujo de datos
 
 ```
-Gesto (Reanimated) ──▶ actualiza nodo en el store (Zustand)
+gesto (reanimated) → estado del lienzo (useState en el editor)
                                    │
-                                   ▼
-                   render del canvas (Views posicionadas)
-                                   │
-            guardado (debounced) ──▶ data/storage ──▶ journal.json + /media
+              autoguardado (debounce 600ms) ──▶ data/storage ──▶ journals/<id>/journal.json
 ```
 
-El **formato de guardado coincide con el de backup**: exportar es comprimir la carpeta
-del journal. Ver [03-modelo-datos](03-modelo-datos.md).
+El editor también **fuerza el guardado** al pulsar atrás y al pasar la app a segundo plano.
+
+## Navegación
+
+- `/` estantería · `/tray` bandeja · `/journal/[id]` editor.
+- La home recarga su lista con `useFocusEffect` al volver.
+- El editor intercepta el **botón atrás de Android** para cerrar modales/selección antes de salir.
