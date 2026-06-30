@@ -20,6 +20,8 @@ type Props = {
    *  'none' = sin tirador, tamaño por contenido (stickers, se escalan con pinza). */
   resizeMode?: 'both' | 'horizontal' | 'none';
   selected?: boolean;
+  /** Si es false (modo vista), el elemento se muestra fijo: sin gestos ni selección. */
+  interactive?: boolean;
   onActivate?: () => void;
   onTransformEnd?: (t: Transform) => void;
   onResizeEnd?: (s: Size) => void;
@@ -39,6 +41,7 @@ export function Manipulable({
   size,
   resizeMode = 'both',
   selected = false,
+  interactive = true,
   onActivate,
   onTransformEnd,
   onResizeEnd,
@@ -152,6 +155,15 @@ export function Manipulable({
     if (resizeMode === 'horizontal') return { width: w.value };
     return {}; // 'none': tamaño por contenido
   });
+
+  // Modo vista: fijo, sin gestos ni selección.
+  if (!interactive) {
+    return (
+      <Animated.View style={[styles.item, outerStyle]}>
+        <Animated.View style={sizeStyle}>{children}</Animated.View>
+      </Animated.View>
+    );
+  }
 
   return (
     <GestureDetector gesture={mainGesture}>

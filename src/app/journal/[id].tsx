@@ -135,6 +135,12 @@ export default function JournalEditor() {
   const [libOpen, setLibOpen] = useState(false);
   const [libTab, setLibTab] = useState<LibTab>('stickers');
   const [recOpen, setRecOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+
+  const exitEditing = () => {
+    setSelectedId(null);
+    setEditing(false);
+  };
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -459,12 +465,16 @@ export default function JournalEditor() {
           setSelectedId(null);
           return true;
         }
+        if (editing) {
+          exitEditing();
+          return true;
+        }
         goBack();
         return true;
       };
       const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
       return () => sub.remove();
-    }, [editingId, renaming, recOpen, libOpen, selectedId, items, journal, id])
+    }, [editingId, renaming, recOpen, libOpen, selectedId, editing, items, journal, id])
   );
 
   // Guardar al pasar a segundo plano (por si el sistema mata la app).
@@ -492,6 +502,15 @@ export default function JournalEditor() {
               {journal?.title ?? '…'}
             </Text>
           </Pressable>
+          <Pressable
+            style={[styles.modeBtn, editing && styles.modeBtnActive]}
+            onPress={() => (editing ? exitEditing() : setEditing(true))}
+            hitSlop={8}
+          >
+            <Text style={[styles.modeBtnText, editing && styles.modeBtnTextActive]}>
+              {editing ? 'Hecho' : 'Editar'}
+            </Text>
+          </Pressable>
         </View>
       </SafeAreaView>
 
@@ -503,10 +522,12 @@ export default function JournalEditor() {
           lineColor={background.lineColor}
         />
 
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={() => setSelectedId(null)}
-        />
+        {editing && (
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setSelectedId(null)}
+          />
+        )}
 
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
           {items.map((item) => (
@@ -527,6 +548,7 @@ export default function JournalEditor() {
                     : 'horizontal'
               }
               selected={selectedId === item.id}
+              interactive={editing}
               onActivate={() =>
                 item.kind === 'washi' ? setSelectedId(item.id) : activate(item.id)
               }
@@ -578,14 +600,17 @@ export default function JournalEditor() {
         {loaded && items.length === 0 && (
           <View pointerEvents="none" style={styles.emptyHint}>
             <Text style={styles.emptyHintText}>
-              Toca ＋ Foto, ＋ Texto o la Biblioteca para empezar
+              {editing
+                ? 'Toca ＋ Foto, ＋ Texto o la Biblioteca para empezar'
+                : 'Pulsa Editar para empezar esta página'}
             </Text>
           </View>
         )}
       </View>
 
-      {/* Barra inferior */}
-      <SafeAreaView edges={['bottom']} style={styles.toolbarWrap}>
+      {/* Barra inferior (solo en modo edición) */}
+      <SafeAreaView edges={['bottom']} style={styles.toolbarWrap} pointerEvents="box-none">
+        {editing && (
         <View style={styles.toolbar}>
           {selectedItem ? (
             <>
@@ -653,6 +678,7 @@ export default function JournalEditor() {
             </>
           )}
         </View>
+        )}
       </SafeAreaView>
 
       <TextEditorModal
@@ -716,6 +742,20 @@ const styles = StyleSheet.create({
   backIcon: { fontSize: 34, lineHeight: 34, color: colors.ink },
   titleWrap: { flex: 1 },
   headerTitle: { fontSize: 20, fontWeight: '700', color: colors.ink },
+  modeBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: colors.paperLight,
+    borderWidth: 1,
+    borderColor: colors.kraftMuted,
+  },
+  modeBtnActive: {
+    backgroundColor: colors.ink,
+    borderColor: colors.ink,
+  },
+  modeBtnText: { fontSize: 14, fontWeight: '700', color: colors.ink },
+  modeBtnTextActive: { color: colors.white },
   canvas: { flex: 1, overflow: 'hidden' },
   emptyHint: {
     ...StyleSheet.absoluteFillObject,
