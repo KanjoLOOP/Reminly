@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AudioRecorderModal } from '../features/canvas/components/AudioRecorderModal';
 import { TextEditorModal } from '../features/canvas/components/TextEditorModal';
+import { LayoutPreview } from '../features/journal/components/LayoutPreview';
 import { colors, radius } from '../core/theme/tokens';
 import { LAYOUT_OPTIONS } from '../data/layouts';
 import { isGif, processPhoto } from '../data/media';
@@ -210,15 +211,20 @@ export default function Tray() {
           <Pressable style={styles.sheet} onPress={() => {}}>
             <View style={styles.grabber} />
             <Text style={styles.sheetTitle}>Estilo de la página</Text>
-            <View style={styles.layouts}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.layouts}
+            >
               {LAYOUT_OPTIONS.map((l) => {
                 const active = l.id === layout;
                 return (
                   <Pressable
                     key={l.id}
                     onPress={() => setLayout(l.id)}
-                    style={[styles.layoutChip, active && styles.layoutChipActive]}
+                    style={[styles.layoutCard, active && styles.layoutCardActive]}
                   >
+                    <LayoutPreview layoutId={l.id} />
                     <Text
                       style={[styles.layoutText, active && styles.layoutTextActive]}
                     >
@@ -227,7 +233,7 @@ export default function Tray() {
                   </Pressable>
                 );
               })}
-            </View>
+            </ScrollView>
 
             <Text style={[styles.sheetTitle, { marginTop: 10 }]}>
               ¿Dónde lo guardamos?
@@ -373,18 +379,18 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   sheetTitle: { fontSize: 17, fontWeight: '700', color: colors.ink, marginBottom: 4 },
-  layouts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  layoutChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: radius.pill,
-    backgroundColor: colors.paperCream,
-    borderWidth: 1,
-    borderColor: colors.kraftMuted,
+  layouts: { gap: 10, paddingVertical: 4, paddingRight: 8 },
+  layoutCard: {
+    alignItems: 'center',
+    gap: 5,
+    padding: 5,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  layoutChipActive: { backgroundColor: colors.ink, borderColor: colors.ink },
-  layoutText: { fontSize: 14, fontWeight: '600', color: colors.ink },
-  layoutTextActive: { color: colors.white },
+  layoutCardActive: { borderColor: colors.rose },
+  layoutText: { fontSize: 12, fontWeight: '700', color: colors.ink },
+  layoutTextActive: { color: colors.rose },
   newRow: {
     paddingVertical: 14,
     paddingHorizontal: 14,
