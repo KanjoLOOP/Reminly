@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -76,6 +77,7 @@ export function LibrarySheet({
   onSetBackground,
 }: Props) {
   const [tab, setTab] = useState<Tab>('stickers');
+  const { height: screenH } = useWindowDimensions();
 
   useEffect(() => {
     if (visible && initialTab) setTab(initialTab);
@@ -110,7 +112,11 @@ export function LibrarySheet({
             })}
           </ScrollView>
 
-          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+          <ScrollView
+            style={[styles.body, { maxHeight: screenH * 0.55 }]}
+            contentContainerStyle={styles.bodyContent}
+            showsVerticalScrollIndicator
+          >
             {tab === 'stickers' && (
               <View style={styles.grid}>
                 {STICKERS.map((s, i) => (
@@ -394,10 +400,11 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   body: {
+    flexShrink: 1,
     paddingHorizontal: 16,
   },
   bodyContent: {
-    paddingBottom: 12,
+    paddingBottom: 24,
   },
   grid: {
     flexDirection: 'row',

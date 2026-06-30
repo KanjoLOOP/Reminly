@@ -744,6 +744,15 @@ export default function JournalEditor() {
               )}
             </>
           )}
+          {!editing && (
+            <Pressable
+              onPress={() => router.push(`/present/${id}?page=${pageIndex}`)}
+              style={styles.pageAction}
+              hitSlop={6}
+            >
+              <Text style={styles.pageActionText}>▶ Presentar</Text>
+            </Pressable>
+          )}
         </View>
 
         {editing && (
