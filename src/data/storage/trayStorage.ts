@@ -8,7 +8,7 @@
  */
 import { Directory, File, Paths } from 'expo-file-system';
 
-import { CanvasItem } from '../models/journal';
+import { CanvasItem, DEFAULT_BACKGROUND } from '../models/journal';
 import { TrayItem } from '../models/tray';
 import {
   createJournal,
@@ -142,7 +142,21 @@ export function convertTrayToJournal(
     return { ...base, kind: 'text', text: t.text, font: 'Caveat_700Bold', color: '#3B3A36', width: 240, height: 80 };
   });
 
-  saveJournal({ ...journal, items: [...journal.items, ...items] });
+  const pages = Array.isArray(journal.pages) ? [...journal.pages] : [];
+  if (journalId && pages.length > 0) {
+    // Libreta existente: lo convertido va en una página nueva al final.
+    pages.push({
+      id: uid('p'),
+      background: { ...DEFAULT_BACKGROUND },
+      items,
+    });
+  } else {
+    // Libreta nueva (o sin páginas): va en la primera página.
+    const first = pages[0] ?? { id: uid('p'), background: { ...DEFAULT_BACKGROUND }, items: [] };
+    pages[0] = { ...first, items };
+  }
+
+  saveJournal({ ...journal, pages });
   writeTray(listTray().filter((t) => !ids.includes(t.id)));
   return journal.id;
 }

@@ -19,8 +19,15 @@ import {
   DEFAULT_COVER,
   Journal,
   JournalSummary,
+  Page,
   SCHEMA_VERSION,
 } from '../models/journal';
+
+const newPage = (): Page => ({
+  id: `p_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+  background: { ...DEFAULT_BACKGROUND },
+  items: [],
+});
 
 const JOURNALS_DIR = 'journals';
 const JOURNAL_FILE = 'journal.json';
@@ -53,8 +60,14 @@ export function listJournals(): JournalSummary[] {
       const file = new File(entry, JOURNAL_FILE);
       if (!file.exists) continue;
       try {
-        const j = JSON.parse(file.textSync()) as Journal;
-        const cover = j.items.find((i) => i.kind === 'photo');
+        const j = JSON.parse(file.textSync()) as Journal & { items?: CanvasItem[] };
+        const pages = Array.isArray(j.pages) ? j.pages : [];
+        const allItems = pages.length
+          ? pages.flatMap((p) => p.items ?? [])
+          : Array.isArray(j.items)
+            ? j.items
+            : [];
+        const cover = allItems.find((i) => i.kind === 'photo');
         summaries.push({
           id: j.id,
           title: j.title,
@@ -62,7 +75,7 @@ export function listJournals(): JournalSummary[] {
           coverUri: cover && cover.kind === 'photo' ? cover.uri : undefined,
           coverColor: j.cover?.color ?? DEFAULT_COVER.color,
           coverStyle: j.cover?.style ?? DEFAULT_COVER.style,
-          count: j.items.length,
+          count: allItems.length,
         });
       } catch {
         // journal corrupto: lo ignoramos
@@ -91,8 +104,7 @@ export function createJournal(title: string, cover: Cover = DEFAULT_COVER): Jour
     createdAt: now,
     updatedAt: now,
     cover: { ...cover },
-    background: { ...DEFAULT_BACKGROUND },
-    items: [],
+    pages: [newPage()],
   };
   journalFile(id).write(JSON.stringify(journal));
   return journal;
@@ -225,8 +237,14 @@ export async function importJournal(): Promise<string | null> {
     const unzipped = unzipSync(bytes);
     const raw = unzipped['journal.json'];
     if (!raw) return null;
-    const j = JSON.parse(strFromU8(raw)) as Journal;
-    if (!j || typeof j !== 'object' || !Array.isArray(j.items)) return null;
+    const j = JSON.parse(strFromU8(raw)) as {
+      title?: string;
+      cover?: Cover;
+      pages?: Page[];
+      items?: CanvasItem[];
+      background?: typeof DEFAULT_BACKGROUND;
+    };
+    if (!j || typeof j !== 'object') return null;
 
     const id = newId('j');
     const now = new Date().toISOString();
@@ -243,22 +261,38 @@ export async function importJournal(): Promise<string | null> {
     }
 
     const VALID_KINDS = ['photo', 'text', 'sticker', 'washi', 'audio', 'video'];
-    const items = j.items
-      .filter((it) => it && VALID_KINDS.includes((it as { kind?: string }).kind ?? ''))
-      .slice(0, 2000) // tope defensivo contra archivos enormes
-      .map((it) =>
-        it.kind === 'photo' || it.kind === 'video' || it.kind === 'audio'
-          ? { ...it, uri: remapMediaUri(media, it.uri) }
-          : it
-      ) as CanvasItem[];
+    const sanitize = (raw: CanvasItem[]): CanvasItem[] =>
+      (Array.isArray(raw) ? raw : [])
+        .filter((it) => it && VALID_KINDS.includes((it as { kind?: string }).kind ?? ''))
+        .slice(0, 2000)
+        .map((it) =>
+          it.kind === 'photo' || it.kind === 'video' || it.kind === 'audio'
+            ? { ...it, uri: remapMediaUri(media, it.uri) }
+            : it
+        ) as CanvasItem[];
+
+    // Soporta export nuevo (pages) y legacy (items en raíz).
+    const srcPages: Page[] = Array.isArray(j.pages)
+      ? j.pages
+      : Array.isArray(j.items)
+        ? [{ id: '', background: j.background ?? DEFAULT_BACKGROUND, items: j.items }]
+        : [];
+    if (srcPages.length === 0) return null;
+
+    const pages: Page[] = srcPages.slice(0, 200).map((p) => ({
+      id: newId('p'),
+      background: p?.background ?? DEFAULT_BACKGROUND,
+      items: sanitize(p?.items ?? []),
+    }));
 
     const imported: Journal = {
-      ...j,
+      schemaVersion: SCHEMA_VERSION,
       id,
-      title: `${j.title} (importada)`,
+      title: `${j.title ?? 'Libreta'} (importada)`,
       createdAt: now,
       updatedAt: now,
-      items,
+      cover: j.cover ?? DEFAULT_COVER,
+      pages,
     };
     new File(dir, JOURNAL_FILE).write(JSON.stringify(imported));
     return id;

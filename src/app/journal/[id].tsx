@@ -3,7 +3,15 @@ import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  AppState,
+  BackHandler,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Manipulable, Size } from '../../features/canvas/components/Manipulable';
@@ -23,6 +31,7 @@ import {
   DEFAULT_BACKGROUND,
   DEFAULT_COVER,
   Journal,
+  Page,
   PaperBackground as Bg,
   Transform,
 } from '../../data/models/journal';
@@ -94,24 +103,45 @@ function defaultH(kind: CanvasItem['kind']) {
   }
 }
 
-function normalize(j: Journal): Journal {
-  const items = j.items.map((i) => {
-    const base = {
-      ...i,
-      width: i.width ?? defaultW(i.kind),
-      height: i.height ?? defaultH(i.kind),
-    };
-    if (i.kind === 'photo')
-      return { ...base, frame: (i as any).frame ?? DEFAULT_FRAME.id };
-    if (i.kind === 'text')
-      return { ...base, color: (i as any).color ?? '#3B3A36' };
-    return base;
-  }) as CanvasItem[];
+const pageId = () =>
+  `p_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+
+function normItem(i: CanvasItem): CanvasItem {
+  const base = {
+    ...i,
+    width: i.width ?? defaultW(i.kind),
+    height: i.height ?? defaultH(i.kind),
+  };
+  if (i.kind === 'photo')
+    return { ...base, frame: (i as any).frame ?? DEFAULT_FRAME.id };
+  if (i.kind === 'text')
+    return { ...base, color: (i as any).color ?? '#3B3A36' };
+  return base;
+}
+
+// Acepta libretas nuevas (pages) y antiguas (items/background en raíz).
+function normalize(j: Journal & { items?: CanvasItem[]; background?: Bg }): Journal {
+  const rawPages: { id?: string; background?: Bg; items?: CanvasItem[] }[] =
+    Array.isArray(j.pages)
+      ? j.pages
+      : Array.isArray(j.items)
+        ? [{ background: j.background, items: j.items }]
+        : [{ items: [] }];
+
+  const pages: Page[] = rawPages.map((p) => ({
+    id: p?.id || pageId(),
+    background: { ...DEFAULT_BACKGROUND, ...(p?.background ?? {}) },
+    items: (Array.isArray(p?.items) ? p.items : []).map(normItem),
+  }));
+
   return {
-    ...j,
+    schemaVersion: j.schemaVersion ?? 1,
+    id: j.id,
+    title: j.title,
+    createdAt: j.createdAt,
+    updatedAt: j.updatedAt,
     cover: j.cover ?? DEFAULT_COVER,
-    background: { ...DEFAULT_BACKGROUND, ...(j.background ?? {}) },
-    items,
+    pages: pages.length ? pages : [{ id: pageId(), background: { ...DEFAULT_BACKGROUND }, items: [] }],
   };
 }
 
@@ -122,8 +152,8 @@ export default function JournalEditor() {
   const router = useRouter();
 
   const [journal, setJournal] = useState<Journal | null>(null);
-  const [items, setItems] = useState<CanvasItem[]>([]);
-  const [background, setBackground] = useState<Bg>(DEFAULT_BACKGROUND);
+  const [pages, setPages] = useState<Page[]>([]);
+  const [pageIndex, setPageIndex] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -142,6 +172,68 @@ export default function JournalEditor() {
     setEditing(false);
   };
 
+  // Página actual: items y background son vistas derivadas; los setters
+  // escriben sobre la página activa, así el resto del editor no cambia.
+  const current = pages[pageIndex];
+  const items = current?.items ?? [];
+  const background = current?.background ?? DEFAULT_BACKGROUND;
+
+  const setItems = (
+    updater: CanvasItem[] | ((prev: CanvasItem[]) => CanvasItem[])
+  ) => {
+    setPages((prev) =>
+      prev.map((p, i) =>
+        i === pageIndex
+          ? {
+              ...p,
+              items: typeof updater === 'function' ? updater(p.items) : updater,
+            }
+          : p
+      )
+    );
+  };
+
+  const setBackground = (bg: Bg) => {
+    setPages((prev) =>
+      prev.map((p, i) => (i === pageIndex ? { ...p, background: bg } : p))
+    );
+  };
+
+  const goToPage = (i: number) => {
+    setSelectedId(null);
+    setPageIndex(Math.max(0, Math.min(pages.length - 1, i)));
+  };
+
+  const addPage = () => {
+    setSelectedId(null);
+    setPages((prev) => {
+      const copy = [...prev];
+      copy.splice(pageIndex + 1, 0, {
+        id: pageId(),
+        background: { ...DEFAULT_BACKGROUND },
+        items: [],
+      });
+      return copy;
+    });
+    setPageIndex(pageIndex + 1);
+  };
+
+  const deletePage = () => {
+    if (pages.length <= 1) return;
+    Alert.alert('Borrar página', '¿Borrar esta página? No se puede deshacer.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Borrar',
+        style: 'destructive',
+        onPress: () => {
+          setSelectedId(null);
+          setPages((prev) => prev.filter((_, i) => i !== pageIndex));
+          setPageIndex(Math.min(pageIndex, pages.length - 2));
+        },
+      },
+    ]);
+  };
+
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -150,8 +242,8 @@ export default function JournalEditor() {
     if (j) {
       const norm = normalize(j);
       setJournal(norm);
-      setItems(norm.items);
-      setBackground(norm.background);
+      setPages(norm.pages);
+      setPageIndex(0);
     }
     setLoaded(true);
   }, [id]);
@@ -159,14 +251,11 @@ export default function JournalEditor() {
   useEffect(() => {
     if (!loaded || !journal) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(
-      () => saveJournal({ ...journal, background, items }),
-      600
-    );
+    saveTimer.current = setTimeout(() => saveJournal({ ...journal, pages }), 600);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [items, background, journal, loaded]);
+  }, [pages, journal, loaded]);
 
   const selectedItem = items.find((i) => i.id === selectedId) ?? null;
 
@@ -424,8 +513,11 @@ export default function JournalEditor() {
   // Al salir, si la libreta quedó vacía (creada y sin usar), se descarta.
   const goBack = () => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    if (id && items.length === 0) {
+    const totalItems = pages.reduce((n, p) => n + p.items.length, 0);
+    if (id && totalItems === 0) {
       deleteJournal(id);
+    } else if (journal) {
+      saveJournal({ ...journal, pages });
     }
     router.back();
   };
@@ -482,11 +574,11 @@ export default function JournalEditor() {
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active' && loaded && journal) {
         if (saveTimer.current) clearTimeout(saveTimer.current);
-        saveJournal({ ...journal, background, items });
+        saveJournal({ ...journal, pages });
       }
     });
     return () => sub.remove();
-  }, [loaded, journal, background, items]);
+  }, [loaded, journal, pages]);
 
   return (
     <View style={[styles.screen, { backgroundColor: background.color }]}>
@@ -608,8 +700,52 @@ export default function JournalEditor() {
         )}
       </View>
 
-      {/* Barra inferior (solo en modo edición) */}
+      {/* Barra inferior */}
       <SafeAreaView edges={['bottom']} style={styles.toolbarWrap} pointerEvents="box-none">
+        {/* Navegación de páginas (siempre visible) */}
+        <View style={styles.pageBar}>
+          <Pressable
+            onPress={() => goToPage(pageIndex - 1)}
+            disabled={pageIndex === 0}
+            style={styles.pageNav}
+            hitSlop={6}
+          >
+            <Text style={[styles.pageNavText, pageIndex === 0 && styles.pageNavOff]}>
+              ‹
+            </Text>
+          </Pressable>
+          <Text style={styles.pageIndicator}>
+            {pageIndex + 1} / {pages.length}
+          </Text>
+          <Pressable
+            onPress={() => goToPage(pageIndex + 1)}
+            disabled={pageIndex >= pages.length - 1}
+            style={styles.pageNav}
+            hitSlop={6}
+          >
+            <Text
+              style={[
+                styles.pageNavText,
+                pageIndex >= pages.length - 1 && styles.pageNavOff,
+              ]}
+            >
+              ›
+            </Text>
+          </Pressable>
+          {editing && (
+            <>
+              <Pressable onPress={addPage} style={styles.pageAction} hitSlop={6}>
+                <Text style={styles.pageActionText}>＋ Página</Text>
+              </Pressable>
+              {pages.length > 1 && (
+                <Pressable onPress={deletePage} style={styles.pageAction} hitSlop={6}>
+                  <Text style={styles.pageActionText}>🗑</Text>
+                </Pressable>
+              )}
+            </>
+          )}
+        </View>
+
         {editing && (
         <View style={styles.toolbar}>
           {selectedItem ? (
@@ -801,6 +937,38 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
   },
+  pageBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.paperLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    marginBottom: 8,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  pageNav: { paddingHorizontal: 6 },
+  pageNavText: { fontSize: 24, lineHeight: 26, color: colors.ink },
+  pageNavOff: { color: colors.kraftMuted },
+  pageIndicator: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.ink,
+    minWidth: 44,
+    textAlign: 'center',
+  },
+  pageAction: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.paperCream,
+  },
+  pageActionText: { fontSize: 13, fontWeight: '700', color: colors.ink },
   toolbar: {
     flexDirection: 'row',
     flexWrap: 'wrap',

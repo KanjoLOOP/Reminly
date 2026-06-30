@@ -100,6 +100,13 @@ export const DEFAULT_COVER: Cover = {
   style: 'notebook',
 };
 
+/** Una hoja de la libreta: su propio papel y sus elementos. */
+export type Page = {
+  id: string;
+  background: PaperBackground;
+  items: CanvasItem[];
+};
+
 export type Journal = {
   schemaVersion: number;
   id: string;
@@ -107,8 +114,7 @@ export type Journal = {
   createdAt: string;
   updatedAt: string;
   cover: Cover;
-  background: PaperBackground;
-  items: CanvasItem[];
+  pages: Page[];
 };
 
 /** Versión ligera para la estantería (home), sin cargar todos los elementos. */
