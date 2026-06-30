@@ -122,7 +122,7 @@ export function loadJournal(id: string): Journal | null {
     const file = journalFile(id);
     if (!file.exists) return null;
     const j = JSON.parse(file.textSync()) as Journal;
-    if (!j || !Array.isArray(j.items)) return null;
+    if (!j || typeof j !== 'object') return null;
     return j;
   } catch {
     return null;

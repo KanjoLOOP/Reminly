@@ -113,10 +113,10 @@ function normItem(i: CanvasItem): CanvasItem {
     height: i.height ?? defaultH(i.kind),
   };
   if (i.kind === 'photo')
-    return { ...base, frame: (i as any).frame ?? DEFAULT_FRAME.id };
+    return { ...base, frame: (i as any).frame ?? DEFAULT_FRAME.id } as CanvasItem;
   if (i.kind === 'text')
-    return { ...base, color: (i as any).color ?? '#3B3A36' };
-  return base;
+    return { ...base, color: (i as any).color ?? '#3B3A36' } as CanvasItem;
+  return base as CanvasItem;
 }
 
 // Acepta libretas nuevas (pages) y antiguas (items/background en raíz).
