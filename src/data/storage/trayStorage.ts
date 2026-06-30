@@ -10,6 +10,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 import { CanvasItem, DEFAULT_BACKGROUND } from '../models/journal';
 import { TrayItem } from '../models/tray';
+import { applyLayout } from '../layouts';
 import {
   createJournal,
   loadJournal,
@@ -116,6 +117,7 @@ export function removeTrayItem(id: string): void {
 export function convertTrayToJournal(
   journalId: string | null,
   ids: string[],
+  layout = 'collage',
   newTitle = 'Desde la bandeja'
 ): string | null {
   const journal = journalId ? loadJournal(journalId) : createJournal(newTitle);
@@ -142,18 +144,20 @@ export function convertTrayToJournal(
     return { ...base, kind: 'text', text: t.text, font: 'Caveat_700Bold', color: '#3B3A36', width: 240, height: 80 };
   });
 
+  const arranged = applyLayout(items, layout);
   const pages = Array.isArray(journal.pages) ? [...journal.pages] : [];
   if (journalId && pages.length > 0) {
     // Libreta existente: lo convertido va en una página nueva al final.
     pages.push({
       id: uid('p'),
       background: { ...DEFAULT_BACKGROUND },
-      items,
+      items: arranged,
     });
   } else {
     // Libreta nueva (o sin páginas): va en la primera página.
-    const first = pages[0] ?? { id: uid('p'), background: { ...DEFAULT_BACKGROUND }, items: [] };
-    pages[0] = { ...first, items };
+    const first =
+      pages[0] ?? { id: uid('p'), background: { ...DEFAULT_BACKGROUND }, items: [] };
+    pages[0] = { ...first, items: arranged };
   }
 
   saveJournal({ ...journal, pages });

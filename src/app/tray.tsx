@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AudioRecorderModal } from '../features/canvas/components/AudioRecorderModal';
 import { TextEditorModal } from '../features/canvas/components/TextEditorModal';
 import { colors, radius } from '../core/theme/tokens';
+import { LAYOUT_OPTIONS } from '../data/layouts';
 import { isGif, processPhoto } from '../data/media';
 import type { JournalSummary } from '../data/models/journal';
 import type { TrayItem } from '../data/models/tray';
@@ -43,6 +44,7 @@ export default function Tray() {
   const [draft, setDraft] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [journals, setJournals] = useState<JournalSummary[]>([]);
+  const [layout, setLayout] = useState('journal');
 
   const refresh = () => setItems(listTray());
   useFocusEffect(useCallback(() => refresh(), []));
@@ -99,7 +101,7 @@ export default function Tray() {
 
   const convert = (journalId: string | null) => {
     const ids = items.map((i) => i.id);
-    const jid = convertTrayToJournal(journalId, ids);
+    const jid = convertTrayToJournal(journalId, ids, layout);
     setPickerOpen(false);
     refresh();
     if (jid) router.push(`/journal/${jid}`);
@@ -207,7 +209,29 @@ export default function Tray() {
         <Pressable style={styles.backdrop} onPress={() => setPickerOpen(false)}>
           <Pressable style={styles.sheet} onPress={() => {}}>
             <View style={styles.grabber} />
-            <Text style={styles.sheetTitle}>¿Dónde lo guardamos?</Text>
+            <Text style={styles.sheetTitle}>Estilo de la página</Text>
+            <View style={styles.layouts}>
+              {LAYOUT_OPTIONS.map((l) => {
+                const active = l.id === layout;
+                return (
+                  <Pressable
+                    key={l.id}
+                    onPress={() => setLayout(l.id)}
+                    style={[styles.layoutChip, active && styles.layoutChipActive]}
+                  >
+                    <Text
+                      style={[styles.layoutText, active && styles.layoutTextActive]}
+                    >
+                      {l.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.sheetTitle, { marginTop: 10 }]}>
+              ¿Dónde lo guardamos?
+            </Text>
 
             <Pressable style={styles.newRow} onPress={() => convert(null)}>
               <Text style={styles.newRowText}>＋ Nueva libreta</Text>
@@ -349,6 +373,18 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   sheetTitle: { fontSize: 17, fontWeight: '700', color: colors.ink, marginBottom: 4 },
+  layouts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  layoutChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+    backgroundColor: colors.paperCream,
+    borderWidth: 1,
+    borderColor: colors.kraftMuted,
+  },
+  layoutChipActive: { backgroundColor: colors.ink, borderColor: colors.ink },
+  layoutText: { fontSize: 14, fontWeight: '600', color: colors.ink },
+  layoutTextActive: { color: colors.white },
   newRow: {
     paddingVertical: 14,
     paddingHorizontal: 14,
