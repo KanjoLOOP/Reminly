@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -14,8 +14,8 @@ import { colors, typography } from '../../core/theme/tokens';
 const LOGO = require('../../../assets/images/logo.png');
 
 /**
- * Splash animado sobre la app al arrancar: el logo (R de washi) aparece
- * cayendo y asentándose, luego el nombre y el eslogan, y se desvanece.
+ * Splash animado sobre la app: el logo cae y se asienta, aparecen el nombre y
+ * el eslogan, y se queda esperando a que el usuario pulse para continuar.
  */
 export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
   const logoY = useSharedValue(-48);
@@ -24,7 +24,9 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
   const logoOpacity = useSharedValue(0);
   const wordOpacity = useSharedValue(0);
   const wordY = useSharedValue(14);
+  const hintOpacity = useSharedValue(0);
   const root = useSharedValue(1);
+  const [dismissing, setDismissing] = useState(false);
 
   useEffect(() => {
     logoOpacity.value = withTiming(1, { duration: 900 });
@@ -35,15 +37,17 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
     wordOpacity.value = withDelay(1700, withTiming(1, { duration: 850 }));
     wordY.value = withDelay(1700, withTiming(0, { duration: 850 }));
 
-    // Se mantiene un rato para poder leerlo, y luego funde a la app.
-    root.value = withDelay(
-      4400,
-      withTiming(0, { duration: 700 }, (finished) => {
-        if (finished) runOnJS(onFinish)();
-      })
-    );
+    hintOpacity.value = withDelay(3000, withTiming(1, { duration: 700 }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const dismiss = () => {
+    if (dismissing) return;
+    setDismissing(true);
+    root.value = withTiming(0, { duration: 500 }, (finished) => {
+      if (finished) runOnJS(onFinish)();
+    });
+  };
 
   const rootStyle = useAnimatedStyle(() => ({ opacity: root.value }));
   const logoStyle = useAnimatedStyle(() => ({
@@ -58,18 +62,21 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
     opacity: wordOpacity.value,
     transform: [{ translateY: wordY.value }],
   }));
+  const hintStyle = useAnimatedStyle(() => ({ opacity: hintOpacity.value }));
 
   return (
-    <Animated.View
-      style={[StyleSheet.absoluteFill, styles.root, rootStyle]}
-      pointerEvents="none"
-    >
-      <Animated.Image source={LOGO} style={[styles.logo, logoStyle]} resizeMode="contain" />
-      <Animated.View style={[styles.words, wordStyle]}>
-        <Text style={styles.brand}>Reminly</Text>
-        <Text style={styles.tag}>Keep your moments alive.</Text>
+    <Pressable style={StyleSheet.absoluteFill} onPress={dismiss}>
+      <Animated.View style={[StyleSheet.absoluteFill, styles.root, rootStyle]}>
+        <Animated.Image source={LOGO} style={[styles.logo, logoStyle]} resizeMode="contain" />
+        <Animated.View style={[styles.words, wordStyle]}>
+          <Text style={styles.brand}>Reminly</Text>
+          <Text style={styles.tag}>Keep your moments alive.</Text>
+        </Animated.View>
+        <Animated.Text style={[styles.hint, hintStyle]}>
+          Pulsa para continuar
+        </Animated.Text>
       </Animated.View>
-    </Animated.View>
+    </Pressable>
   );
 }
 
@@ -99,5 +106,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.inkMuted,
     marginTop: 2,
+  },
+  hint: {
+    position: 'absolute',
+    bottom: 70,
+    alignSelf: 'center',
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.inkMuted,
+    letterSpacing: 0.4,
   },
 });
